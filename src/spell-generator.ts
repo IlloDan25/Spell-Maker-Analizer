@@ -69,9 +69,15 @@ const spellRecipes: SpellRecipe[] = [
 ];
 
 function normalizeEffect(effect: string): string {
-    return effect.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    const normalized = effect.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9\s]/g, " ")
         .replace(/\s+/g, " ");
+
+    if (/\b(?:unbreakable|indestructible|invulnerable|invencible|irrompible|resistant|resistente|ineditable)\b/.test(normalized)) {
+        return "unbreakable";
+    }
+
+    return normalized;
 }
 
 interface CompositionCandidate {
@@ -83,7 +89,7 @@ interface CompositionCandidate {
 const creativeSigilRules: Array<{ keywords: RegExp; symbols: string[] }> = [
     { keywords: /fire|flame|burn|heat|calor|fuego|llama/, symbols: ["sigil_Fire", "sigil_Light", "sigil_Unburning Flames"] },
     { keywords: /water|rain|ice|cold|agua|lluvia|hielo|frio/, symbols: ["sigil_Water", "sigil_Crystalize", "sigil_Purification"] },
-    { keywords: /earth|stone|rock|sand|soil|tierra|roca|arena|piedra/, symbols: ["sigil_Earth", "sigil_Sand", "sigil_Bridging"] },
+    { keywords: /earth|stone|rock|sand|soil|tierra|roca|arena|piedra|unbreakable|indestructible|invulnerable|invencible|resistan/, symbols: ["sigil_Earth", "sigil_Sand", "sigil_Bridging"] },
     { keywords: /wind|air|fly|flight|levitat|float|viento|aire|volar|flotar/, symbols: ["sigil_Wind", "sigil_Aeriforms", "sigil_Wind Underfoot", "sigil_Whorling Winds"] },
     { keywords: /light|glow|luz|brillar|illum/, symbols: ["sigil_Light", "sigil_Flickering Light"] },
     { keywords: /time|stop|freeze|repet|tempo|tiempo/, symbols: ["sigil_Repetition", "sigil_Stop"] },
@@ -102,7 +108,7 @@ const creativeSignRules: Array<{ keywords: RegExp; symbols: string[] }> = [
     { keywords: /reassembl|restore|recompon|reunir|repair/, symbols: ["sign_Enlarge (Inverted)", "sign_Crush", "sign_Convergence"] },
     { keywords: /cold|cool|freeze|frio|hielo|enfri/, symbols: ["sign_Cool", "sign_Solidify", "sign_Stillness"] },
     { keywords: /hide|conceal|shadow|cloak|escon|ocult/, symbols: ["sign_Conceal", "sign_Envelop", "sign_Reflect"] },
-    { keywords: /protect|shield|strength|fortal|reforz/, symbols: ["sign_Empower", "sign_Stability", "sign_Solidify"] },
+    { keywords: /protect|shield|strength|fortal|reforz|unbreakable|indestructible|invulnerable|invencible|resistan/, symbols: ["sign_Empower", "sign_Stability", "sign_Solidify", "sign_Envelop"] },
     { keywords: /bind|hold|entwine|atar|sujetar|inmobil/, symbols: ["sign_Bind", "sign_Entwine", "sign_Immobility"] },
     { keywords: /rain|lluvia|summon|conj/, symbols: ["sign_Rain", "sign_Gather", "sign_Orb"] },
     { keywords: /light|bright|glow|luz|brillar/, symbols: ["sign_Launch", "sign_Column", "sign_Dispersion"] },
@@ -165,7 +171,7 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
 
     const selectedSigns = uniqueNames(signs.slice(0, 4));
     const ringCount = 1 + (mixedIndex(seed, 2, 2));
-    const ringRadii = ringCount === 1 ? [380] : [380, 250];
+    const ringRadii = ringCount === 1 ? [400] : [400, 300];
     const rings = ringRadii.map((radius, index) => ({
         name: ringCount === 1 ? "Main Ring" : `Ring ${index + 1}`,
         radius,
@@ -177,15 +183,16 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
             name,
             size: 120,
             angle: 0,
-            offsetX: index % 2 === 0 ? 150 : -150,
+            offsetX: index % 2 === 0 ? 170 : -170,
             offsetY: 0,
         })),
     ];
 
     const stableAmounts = [4, 6, 8];
-    const stableRadii = [155, 225, 295];
+    const stableRadii = [155, 220, 285];
     const signObjects = selectedSigns.slice(0, 3).map((name, index) => ({
         name,
+        size: 150,
         amount: stableAmounts[index],
         amountSkip: 0,
         radius: stableRadii[index],

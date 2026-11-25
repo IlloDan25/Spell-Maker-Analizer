@@ -37,6 +37,17 @@ test("creative generation is deterministic", () => {
     assert.deepEqual(first, second);
 });
 
+test("English and Spanish unbreakable requests create equivalent layouts", () => {
+    const english = generateSpellRecipe("make this object unbreakable");
+    const spanish = generateSpellRecipe("haz este objeto irrompible");
+
+    assert.ok(english);
+    assert.ok(spanish);
+    assert.equal(english.kind, "creative");
+    assert.equal(spanish.kind, "creative");
+    assert.deepEqual(english.seals, spanish.seals);
+});
+
 test("creative layouts use stable concentric positions", () => {
     const recipe = generateSpellRecipe("make blue flowers dance gently in the air");
 
@@ -45,10 +56,12 @@ test("creative layouts use stable concentric positions", () => {
     assert.ok(seal.rings && seal.rings.length >= 1);
 
     for (const sign of seal.signs ?? []) {
+        assert.equal(sign.size ?? 0, 150);
         assert.ok((sign.amount ?? 0) >= 4);
         assert.equal(sign.amountSkip ?? 0, 0);
         assert.equal(sign.angle ?? 0, 0);
-        assert.ok((sign.radius ?? 0) > 0 && (sign.radius ?? 0) < 400);
+        const outerRingRadius = seal.rings?.[0]?.radius ?? 400;
+        assert.ok((sign.radius ?? 0) + (sign.size ?? 150) / 2 <= outerRingRadius);
     }
 });
 

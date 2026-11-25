@@ -251,8 +251,8 @@ export function generateCompositionCandidates(effect: string, availableSigils: S
         const score = scoreCandidate(parsed, sigils, signs, layout);
         candidates.push({
             name: `Experimental ${parsed.label} - ${layout} ${variation + 1}`,
-            evidence: `Parsed intent=${parsed.intent}, target=${parsed.target}, direction=${parsed.direction}, polarity=${parsed.polarity}; layout=${layout}; components ranked by wiki compatibility and symmetry.`,
-            caveat: "This is a generated experimental composition, not a confirmed documented WHA spell. It must be reviewed as editable fan research.",
+            evidence: `Intent=${parsed.intent}; target=${parsed.target}; variation=${layout}; geometry and quantity were changed, while the effect family and core sigils/signs remain constrained by wiki-known roles.`,
+            caveat: "This is a generated experimental composition, not a confirmed documented WHA spell. Refinement changes intensity, quantity and geometry; it does not create a new magical effect.",
             score,
             seals: [{
                 name: `Experimental ${layout} seal`,

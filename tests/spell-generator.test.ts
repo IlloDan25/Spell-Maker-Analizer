@@ -4,12 +4,28 @@ import type { WitchHatAtelierSpellMaker as SpellType } from "../types/spell.ts";
 
 import { getRadialSignIndices } from "../src/layout.ts";
 import { parseEffect } from "../src/composition-engine.ts";
+import { getSignProperty } from "../src/sign-properties.ts";
+import { getSigilProperty } from "../src/sigil-properties.ts";
+import symbols from "../src/data/symbols.json";
 import {
     explainSpellComposition,
     findSpellRecipe,
     generateSpellRecipe,
     generateSpellCandidates,
 } from "../src/spell-generator.ts";
+
+test("every available catalog name has a sign or sigil property entry", () => {
+    for (const name of Object.keys(symbols.signs)) {
+        assert.ok(getSignProperty(`sign_${name}`));
+    }
+    for (const name of Object.keys(symbols.sigils)) {
+        assert.ok(getSigilProperty(`sigil_${name}`));
+    }
+
+    const vision = getSignProperty("sign_Vision");
+    assert.equal(vision.category, "unknown");
+    assert.equal(vision.inversion, "unknown");
+});
 
 test("finds a documented Rainbringer pattern", () => {
     const recipe = findSpellRecipe("make it rain in the courtyard");

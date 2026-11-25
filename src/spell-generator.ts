@@ -2,6 +2,7 @@ import type { WitchHatAtelierSpellMaker as SpellType } from "../types/spell";
 import symbols from "./data/symbols.json";
 import { generateCompositionCandidates, type RefinementMode } from "./composition-engine";
 import { getSignProperty, isSignCompatible } from "./sign-properties";
+import { getSigilProperty } from "./sigil-properties";
 
 export interface SpellRecipe {
     name: string;
@@ -266,21 +267,21 @@ function customRoleStatus(spell: SpellType, name: string, expectedRole: "sigil" 
 }
 
 function sigilSemantics(name: string, spell?: SpellType): string {
-    const baseName = name.replace(/^sigil_/, "");
-    const semanticMap: Record<string, string> = {
-        Earth: "controls solid material such as stone, sand or soil",
-        Fire: "creates or manipulates flame and heat",
-        Water: "creates, collects or manipulates water",
-        Wind: "moves and manipulates air",
-        "Wind Underfoot": "supports a solid object or contraption in flight",
-        Repetition: "continually restores an object toward its prior state",
-        Light: "creates or manipulates light",
-        Purification: "purifies water or separates waste",
-    };
     if (name.startsWith("custom_") && spell) {
         return customImageSemantics(spell, name) ?? "uses a custom sigil whose meaning is not defined";
     }
-    return semanticMap[baseName] ?? `uses the ${baseName} sigil as the effect type`;
+
+    const property = getSigilProperty(name);
+    if (property.status === "confirmed") {
+        return `${property.effect}. It is a confirmed ${property.domain} sigil in the wiki context; ${property.placement.toLowerCase()}`;
+    }
+    if (property.status === "partially-confirmed") {
+        return `${property.effect}. This is a partially confirmed sigil; ${property.placement.toLowerCase()}`;
+    }
+    if (property.status === "unofficial") {
+        return `${property.effect}. This is an unofficial or fan-named sigil and should not be presented as fully documented`;
+    }
+    return `${property.effect}. Its exact wiki status remains unknown`;
 }
 
 function requestedEffectAdvice(requestedEffect: string | null): string {
@@ -411,7 +412,9 @@ export function explainSpellComposition(spell: SpellType): string {
         ? `\n\nShared collaboration room: ${collaboration.room || "unnamed room"}. Saved revision: ${collaboration.revision ?? 0}. Live editing requires a real-time collaboration backend.`
         : "";
 
-    return summary + requestedEffectAdvice(requestedEffect) + collaborationText + "\n\n" + explanations.join("\n\n");
+    const variationLimit = "The displayed variants can change intensity, quantity, reach and geometry, but they do not invent a different effect family. For a different effect, change the requested intent or add a documented composition manually.";
+
+    return summary + requestedEffectAdvice(requestedEffect) + collaborationText + "\n\n" + variationLimit + "\n\n" + explanations.join("\n\n");
 }
 
 export const supportedSpellEffects = [

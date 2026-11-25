@@ -1,6 +1,7 @@
 import type { WitchHatAtelierSpellMaker as SpellType } from "../types/spell";
 import symbols from "./data/symbols.json";
-import { generateCompositionCandidates } from "./composition-engine";
+import { generateCompositionCandidates, type RefinementMode } from "./composition-engine";
+import { getSignProperty, isSignCompatible } from "./sign-properties";
 
 export interface SpellRecipe {
     name: string;
@@ -211,7 +212,7 @@ export function findSpellRecipe(effect: string): SpellRecipe | null {
     return documented;
 }
 
-export function generateSpellCandidates(effect: string, refinement = 0): SpellRecipe[] {
+export function generateSpellCandidates(effect: string, refinement = 0, mode: RefinementMode = "balanced"): SpellRecipe[] {
     const documented = findSpellRecipe(effect);
     if (documented) return [documented];
 
@@ -221,7 +222,7 @@ export function generateSpellCandidates(effect: string, refinement = 0): SpellRe
     const availableSigils = new Set(Object.keys(symbols.sigils).map(name => `sigil_${name}`));
     const availableSigns = new Set(Object.keys(symbols.signs).map(name => `sign_${name}`));
 
-    return generateCompositionCandidates(effect, availableSigils, availableSigns, 8, refinement).map(candidate => ({
+    return generateCompositionCandidates(effect, availableSigils, availableSigns, 8, refinement, mode).map(candidate => ({
         name: candidate.name,
         kind: "creative",
         match: /.*/,
@@ -250,35 +251,6 @@ function customImageSemantics(spell: SpellType, name: string): string | null {
     const custom = spell.custom?.images?.find((image: any) => image.name === customName);
     const description = custom?.description?.trim();
     return description || (customName ? `Custom symbol "${customName}"; no effect description was provided.` : null);
-}
-
-function signSemantics(name: string, spell?: SpellType): string {
-    const semanticMap: Record<string, string> = {
-        "Enlarge": "enlarges an affected object",
-        "Enlarge (Inverted)": "shrinks an affected object",
-        "Crush": "pulverizes solid material",
-        "Convergence": "concentrates and packs the spell's effect",
-        "Column": "directs the effect along a column",
-        "Levitation": "lifts and balances a target",
-        "Stability": "holds an object on a stable plane",
-        "Solidify": "makes material hard or rigid",
-        "Empower": "strengthens or reinforces the affected magic or solid object",
-        "Envelop": "surrounds the target with the effect",
-        "Dispersion": "spreads the effect outward",
-        "Rain": "summons a rain-like manifestation",
-        "Diamond": "defines or isolates the affected area",
-        "Holding": "holds the target while still allowing movement",
-        "Puppet": "allows directed movement",
-        "Focus": "aims the spell at a chosen target",
-        "Purify": "separates waste or contamination",
-        "Refuse": "collects unwanted material",
-        "Conceal": "hides the target",
-    };
-    if (name.startsWith("custom_") && spell) {
-        return customImageSemantics(spell, name) ?? "uses a custom sign whose meaning is not defined";
-    }
-    const baseName = name.replace(/^sign_/, "");
-    return semanticMap[baseName] ?? `applies the documented ${baseName} modifier`;
 }
 
 function customRoleStatus(spell: SpellType, name: string, expectedRole: "sigil" | "sign"): string {
@@ -342,32 +314,38 @@ export function explainSpellComposition(spell: SpellType): string {
         }
 
         const ringText = rings.map(ring => {
-            const radius = ring.radius ?? 400;
-            const gap = ring.openingSize && ring.openingSize > 0
-                ? ` with an opening of ${ring.openingSize} degrees`
+            const ringKind = (ring as typeof ring & { nested?: boolean }).nested
+                ? "nested inner ring"
+                : "outer ring";
+            const opening = ring.openingSize && ring.openingSize > 0
+                ? " with a deliberate opening"
                 : " closed";
-            return `R${radius}${gap}`;
-        }).join(" + ");
+            return `${ring.name ?? ringKind}${opening}`;
+        }).join(" and ");
 
         const signText = signs.map(sign => {
             const name = sign.name ?? "unnamed sign";
             const amount = sign.amount ?? 1;
             const radius = sign.radius ?? 0;
             const angle = sign.angle ?? 0;
-            const rotation = sign.rotation ?? 0;
-            const inverted = /(?:Inverted|inverted)/.test(name);
-            const direction = inverted
-                ? "inverted; it produces the opposite documented behavior"
-                : angle === 180
-                    ? "rotated 180 degrees"
-                    : "normally oriented";
 
             const prefixText = sign.prefix ? `${sign.prefix} ` : "";
+            const property = getSignProperty(name);
+            const behavior = name.startsWith("custom_") && spell
+                ? customImageSemantics(spell, name) ?? "uses a custom sign whose meaning is not defined"
+                : property.behavior;
             const positions = (sign as typeof sign & { positions?: Array<{ x?: number, y?: number, angle?: number, size?: number }> }).positions;
             const placement = positions?.length
-                ? `; manual positions=${positions.map(position => `(${position.x ?? 0},${position.y ?? 0}; angle=${position.angle ?? 0}; size=${position.size ?? sign.size ?? 200})`).join(" ")}`
-                : `; radial count=${amount}, radius=${radius}, rotation=${rotation}`;
-            return `SIGN(${prefixText}${name.replace(/^(?:sign_|custom_)/, "")}${placement}): ${direction}; ${signSemantics(name, spell)}.${customRoleStatus(spell, name, "sign")}`;
+                ? `placed manually in ${positions.length} positions`
+                : `distributed as a crown of ${amount} signs${radius > 0 ? " around the active area" : ""}`;
+            const inversion = property.inversion === "supported"
+                ? angle === 180 || /Inverted/.test(name)
+                    ? " Its facing is inverted, so it produces the opposite behavior."
+                    : " It can be inverted if the sign is turned to face the opposite way."
+                : property.inversion === "not-supported"
+                    ? " This sign should not be inverted."
+                    : "";
+            return `${prefixText}${name.replace(/^(?:sign_|custom_)/, "")}: ${behavior}. It is ${property.category}; ${placement}.${inversion}${customRoleStatus(spell, name, "sign")}`;
         }).join(" ");
 
         const effectText = sigils.length
@@ -376,20 +354,37 @@ export function explainSpellComposition(spell: SpellType): string {
                 const name = sigil.name ?? "";
                 const positions = (sigil as typeof sigil & { positions?: Array<{ x?: number, y?: number, angle?: number, size?: number }> }).positions;
                 const placement = positions?.length
-                    ? `; manual positions=${positions.map(position => `(${position.x ?? 0},${position.y ?? 0}; angle=${position.angle ?? 0}; size=${position.size ?? sigil.size ?? 400})`).join(" ")}`
-                    : `; position=(${sigil.offsetX ?? 0},${sigil.offsetY ?? 0}), angle=${sigil.angle ?? 0}, size=${sigil.size ?? 400}`;
-                return `${prefixText}${sigilSemantics(name, spell)}${placement}.${customRoleStatus(spell, name, "sigil")}`;
+                    ? " It is placed in a manual position."
+                    : " It is centered by the current seal layout.";
+                return `${prefixText}${sigilSemantics(name, spell)}${placement}${customRoleStatus(spell, name, "sigil")}`;
             }).join(" In addition, ")
             : "No sigil is present; the result depends mainly on the signs and ring.";
 
         const balanceText = signs.length
-            ? "Balance depends on sign size, radius and placement. Unequal or one-sided signs can redirect the effect; radial crowns should usually preserve bilateral or radial symmetry."
-            : "No signs are present; a ring alone may cause a rapid discharge of energy.";
+            ? "For stability, signs with the same role should keep consistent size and balanced placement. One noticeably larger or one-sided sign can redirect the effect."
+            : "No signs are present, so the ring would act mainly as a rapid discharge rather than as a controlled modifier.";
 
-        const grammar = `SEAL{${ringText} | ${sigils.map(sigil => `SIGIL(${sigil.name?.replace(/^(?:sigil_|custom_)/, "") ?? "?"})`).join(" + ")} | ${signs.map(sign => `SIGN(${sign.name?.replace(/^(?:sign_|custom_)/, "") ?? "?"}, ${sign.amount ?? 1}@${sign.radius ?? 0})`).join(" + ")}}`;
+        const compatibilityText = signs.length && sigils.length
+            ? (() => {
+                const compatible = signs.filter(sign => isSignCompatible(sign.name ?? "", sigils[0].name ?? ""));
+                const incompatible = signs.filter(sign => !isSignCompatible(sign.name ?? "", sigils[0].name ?? ""));
+                if (incompatible.length > 0) {
+                    return ` Some signs may not share a confirmed role with the central sigil: ${incompatible.map(sign => sign.name?.replace(/^(?:sign_|custom_)/, "") ?? "unnamed sign").join(", ")}.`;
+                }
+                return compatible.length > 0
+                    ? ` The selected signs are compatible candidates with the central sigil's role.`
+                    : "";
+            })()
+            : "";
 
         const linkedText = (seal.lines?.length ?? 0) > 0
-            ? ` This seal also contains ${seal.lines!.length} line${seal.lines!.length === 1 ? "" : "s"}; linked lines can combine it with another seal according to WHA linked-spell rules.`
+            ? (() => {
+                const linkedLines = seal.lines!.filter(line => (line as typeof line & { linked?: boolean }).linked);
+                if (linkedLines.length > 0) {
+                    return ` This seal has ${linkedLines.length} explicit linked line${linkedLines.length === 1 ? "" : "s"} connecting it with another seal; linked spells combine their effects.`;
+                }
+                return ` This seal also contains ${seal.lines!.length} visible line${seal.lines!.length === 1 ? "" : "s"}.`;
+            })()
             : "";
 
         const customCount = [...sigils, ...signs].filter(symbol => symbol.name?.startsWith("custom_")).length;
@@ -397,7 +392,7 @@ export function explainSpellComposition(spell: SpellType): string {
             ? ` This seal uses ${customCount} custom symbol${customCount === 1 ? "" : "s"}; custom descriptions are fan-defined and are not confirmed by the wiki.`
             : "";
 
-        return `Seal ${sealIndex + 1}: ${effectText} ${signText ? `The sign grammar is ${signText}` : "No signs modify the sigil."} ${balanceText}${roleText}${linkedText}\nSyntax: ${grammar}`;
+        return `Seal ${sealIndex + 1}: This seal uses ${ringText}. ${effectText}${signText ? ` The modifier signs are ${signText}` : " There are no signs modifying the sigil."} ${balanceText}${compatibilityText}${roleText}${linkedText}`;
     });
 
     const description = spell.description?.trim();
@@ -411,7 +406,12 @@ export function explainSpellComposition(spell: SpellType): string {
             ? `Spell description: ${description}`
             : "Spell description: No effect description has been provided.";
 
-    return summary + requestedEffectAdvice(requestedEffect) + "\n\n" + explanations.join("\n\n");
+    const collaboration = (spell as typeof spell & { collaboration?: { enabled?: boolean; room?: string; revision?: number } }).collaboration;
+    const collaborationText = collaboration?.enabled
+        ? `\n\nShared collaboration room: ${collaboration.room || "unnamed room"}. Saved revision: ${collaboration.revision ?? 0}. Live editing requires a real-time collaboration backend.`
+        : "";
+
+    return summary + requestedEffectAdvice(requestedEffect) + collaborationText + "\n\n" + explanations.join("\n\n");
 }
 
 export const supportedSpellEffects = [

@@ -246,6 +246,19 @@
                                 "offsetY": {
                                     "$ref": "#/definitions/offset",
                                     "title": "Ring Vertical Offset"
+                                },
+                                "nested": {
+                                    "type": "boolean",
+                                    "title": "Nested Inner Ring",
+                                    "default": false,
+                                    "options": {
+                                        "infoText": "Marks this ring as an inner ring that activates through the outer ring"
+                                    }
+                                },
+                                "activatesWithOuter": {
+                                    "type": "boolean",
+                                    "title": "Activates With Outer Ring",
+                                    "default": true
                                 }
                             }
                         }
@@ -490,6 +503,23 @@
                                     "$ref": "#/definitions/weight",
                                     "title": "Line Weight"
                                 },
+                                "startSeal": {
+                                    "type": "integer",
+                                    "title": "Starting Seal Index",
+                                    "minimum": 0,
+                                    "default": 0
+                                },
+                                "endSeal": {
+                                    "type": "integer",
+                                    "title": "Ending Seal Index",
+                                    "minimum": 0,
+                                    "default": 0
+                                },
+                                "linked": {
+                                    "type": "boolean",
+                                    "title": "Linked Spell Line",
+                                    "default": false
+                                },
                                 "points": {
                                     "type": "array",
                                     "format": "table",
@@ -514,6 +544,29 @@
                             }
                         }
                     }
+                }
+            }
+        },
+        "collaboration": {
+            "type": "object",
+            "title": "Collaboration",
+            "required": ["enabled", "revision", "room"],
+            "properties": {
+                "enabled": {
+                    "type": "boolean",
+                    "title": "Sharing Enabled",
+                    "default": false
+                },
+                "room": {
+                    "type": "string",
+                    "title": "Share Room",
+                    "default": ""
+                },
+                "revision": {
+                    "type": "integer",
+                    "title": "Collaboration Revision",
+                    "minimum": 0,
+                    "default": 0
                 }
             }
         },

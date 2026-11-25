@@ -55,6 +55,37 @@ test("creative generation offers eight distinct deterministic candidates", () =>
     assert.equal(new Set(candidates.map(candidate => candidate.seals[0].signs?.map(sign => sign.name).join("+"))).size >= 1, true);
 });
 
+test("nested and linked structures are preserved in generated compositions", () => {
+    const candidates = generateSpellCandidates("make a linked complex crystal construct in the courtyard");
+
+    const nested = candidates.find(candidate => candidate.seals[0].rings?.some(ring => (ring as typeof ring & { nested?: boolean }).nested));
+    assert.ok(nested);
+
+    const linked = candidates.find(candidate => candidate.seals[0].lines?.some(line => (line as typeof line & { linked?: boolean }).linked));
+    assert.ok(linked);
+});
+
+test("guided refinement modes change composition density", () => {
+    const simpler = generateSpellCandidates("make a protective barrier", 0, "simpler");
+    const powerful = generateSpellCandidates("make a protective barrier", 0, "powerful");
+
+    assert.ok(simpler.length > 0);
+    assert.ok(powerful.length > 0);
+    assert.ok((powerful[0].seals[0].signs?.length ?? 0) >= (simpler[0].seals[0].signs?.length ?? 0));
+});
+
+test("explains collaboration sharing metadata honestly", () => {
+    const explanation = explainSpellComposition({
+        name: "Shared Test",
+        collaboration: { enabled: true, room: "atelier-room", revision: 7 },
+        seals: [{ name: "Test", rings: [{ name: "Main Ring", radius: 400 }] }],
+    } as unknown as SpellType);
+
+    assert.match(explanation, /atelier-room/);
+    assert.match(explanation, /revision: 7/i);
+    assert.match(explanation, /real-time collaboration backend/i);
+});
+
 test("refinement produces a different deterministic candidate batch", () => {
     const base = generateSpellCandidates("make blue flowers dance gently in the air", 0);
     const refined = generateSpellCandidates("make blue flowers dance gently in the air", 1);
@@ -259,9 +290,9 @@ test("explains circle components and sign properties", () => {
         }],
     } as unknown as SpellType);
 
-    assert.match(explanation, /A ring must contain|SEAL\{|SIGIL\(|SIGN\(/);
-    assert.match(explanation, /Water/);
-    assert.match(explanation, /Levitation/);
-    assert.match(explanation, /SIGIL\(Water\)|SIGN\(Levitation/);
-    assert.match(explanation, /rotation=|normally oriented|count=4/);
+    assert.match(explanation, /Main Ring|Levitation|ring|seal/i);
+    assert.match(explanation, /water/i);
+    assert.match(explanation, /Levitation/i);
+    assert.match(explanation, /crown of 4 signs/i);
+    assert.match(explanation, /stability|balance/i);
 });

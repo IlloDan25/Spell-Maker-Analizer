@@ -44,6 +44,14 @@ export default function updateCustomTabs() {
             <select id="spell-candidate" class="form-select form-select-sm d-inline-block ms-2 w-auto" disabled>
                 <option value="0">Variant 1</option>
             </select>
+            <label htmlFor="refinement-mode" class="visually-hidden">Refinement mode</label>
+            <select id="refinement-mode" class="form-select form-select-sm d-inline-block ms-2 w-auto">
+                <option value="balanced">Balanced</option>
+                <option value="simpler">Simpler</option>
+                <option value="symmetric">More symmetric</option>
+                <option value="compact">More compact</option>
+                <option value="powerful">More powerful</option>
+            </select>
             <button id="refine-spell" type="button" class="btn btn-sm btn-outline-secondary ms-2">
                 <i class="fas fa-arrows-rotate me-1" /> Refine variants
             </button>
@@ -72,8 +80,12 @@ export default function updateCustomTabs() {
         }
 
         const candidateSelect = document.getElementById("spell-candidate") as HTMLSelectElement;
-        if (candidateSelect.dataset.effect !== `${effect}|${refinement}` || activeCandidates.length === 0) {
-            activeCandidates = generateSpellCandidates(effect, refinement);
+        const modeSelect = document.getElementById("refinement-mode") as HTMLSelectElement;
+        const mode = modeSelect.value as "balanced" | "simpler" | "symmetric" | "compact" | "powerful";
+        if (candidateSelect.dataset.effect !== `${effect}|${refinement}|${mode}` || activeCandidates.length === 0) {
+            const modeSelect = document.getElementById("refinement-mode") as HTMLSelectElement;
+            const mode = modeSelect.value as "balanced" | "simpler" | "symmetric" | "compact" | "powerful";
+            activeCandidates = generateSpellCandidates(effect, refinement, mode);
             candidateSelect.replaceChildren(...activeCandidates.map((candidate, index) => {
                 const option = document.createElement("option");
                 option.value = String(index);
@@ -81,7 +93,7 @@ export default function updateCustomTabs() {
                 return option;
             }));
             candidateSelect.disabled = activeCandidates.length < 2;
-            candidateSelect.dataset.effect = `${effect}|${refinement}`;
+            candidateSelect.dataset.effect = `${effect}|${refinement}|${mode}`;
             candidateSelect.value = "0";
         }
 
@@ -119,7 +131,9 @@ export default function updateCustomTabs() {
         }
 
         refinement += 1;
-        activeCandidates = generateSpellCandidates(effect, refinement);
+        const modeSelect = document.getElementById("refinement-mode") as HTMLSelectElement;
+        const mode = modeSelect.value as "balanced" | "simpler" | "symmetric" | "compact" | "powerful";
+        activeCandidates = generateSpellCandidates(effect, refinement, mode);
         const candidateSelect = document.getElementById("spell-candidate") as HTMLSelectElement;
         candidateSelect.replaceChildren(...activeCandidates.map((candidate, index) => {
             const option = document.createElement("option");
@@ -128,7 +142,7 @@ export default function updateCustomTabs() {
             return option;
         }));
         candidateSelect.disabled = activeCandidates.length < 2;
-        candidateSelect.dataset.effect = `${effect}|${refinement}`;
+        candidateSelect.dataset.effect = `${effect}|${refinement}|${mode}`;
         candidateSelect.value = "0";
         if (status) status.textContent = `Refinement ${refinement}: ${activeCandidates.length} new structured candidates ready.`;
     });

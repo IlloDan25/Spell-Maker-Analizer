@@ -1,6 +1,7 @@
 import type { WitchHatAtelierSpellMaker as SpellType } from "../types/spell";
 
 export type EffectIntent = "strength" | "fire" | "water" | "earth" | "wind" | "light" | "flight" | "rain" | "break" | "restore" | "reduce" | "expand" | "conceal" | "movement" | "purify" | "summon" | "unknown";
+export type RefinementMode = "balanced" | "simpler" | "symmetric" | "compact" | "powerful";
 
 export interface ParsedEffect {
     intent: EffectIntent;
@@ -155,7 +156,7 @@ function scoreCandidate(parsed: ParsedEffect, sigils: string[], signs: string[],
     return score;
 }
 
-export function generateCompositionCandidates(effect: string, availableSigils: Set<string>, availableSigns: Set<string>, variationCount = 8, refinement = 0): CompositionCandidate[] {
+export function generateCompositionCandidates(effect: string, availableSigils: Set<string>, availableSigns: Set<string>, variationCount = 8, refinement = 0, mode: RefinementMode = "balanced"): CompositionCandidate[] {
     const parsed = parseEffect(effect);
     const profile = profiles[parsed.intent];
     const seed = hashText(normalizeText(effect) + `|refinement=${refinement}`);
@@ -167,17 +168,25 @@ export function generateCompositionCandidates(effect: string, availableSigils: S
     const candidates: CompositionCandidate[] = [];
 
     for (let variation = 0; variation < variationCount; variation++) {
-        const layout = layouts[(variation + (seed % layouts.length)) % layouts.length];
-        const sigils = pick(sigilPool.length ? sigilPool : ["sigil_Repetition"], seed, variation).slice(0, parsed.quantity === "large" ? 2 : 1);
-        const signs = pick(signPool.length ? signPool : ["sign_Convergence"], seed, variation + 7).slice(0, parsed.quantity === "large" ? 3 : variation % 3 === 0 ? 1 : 2);
+        const layout = mode === "symmetric"
+            ? "bilateral"
+            : mode === "compact"
+                ? "nested"
+                : mode === "powerful"
+                    ? (variation % 2 === 0 ? "linked" : "nested")
+                    : mode === "simpler"
+                        ? "radial"
+                        : layouts[(variation + (seed % layouts.length)) % layouts.length];
+        const sigils = pick(sigilPool.length ? sigilPool : ["sigil_Repetition"], seed, variation).slice(0, mode === "simpler" ? 1 : parsed.quantity === "large" || mode === "powerful" ? 2 : 1);
+        const signs = pick(signPool.length ? signPool : ["sign_Convergence"], seed, variation + 7).slice(0, mode === "simpler" ? 1 : parsed.quantity === "large" || mode === "powerful" ? 3 : variation % 3 === 0 ? 1 : 2);
 
         const invertedIndex = parsed.polarity === "inverted"
             ? signs.findIndex(name => /Enlarge|Crush|Rain|Column/.test(name))
             : -1;
 
-        const rings = layout === "nested" || parsed.intent === "restore" || parsed.intent === "reduce" || parsed.intent === "expand"
-            ? [{ name: "Outer Ring", radius: 400 }, { name: "Inner Ring", radius: 300 }]
-            : [{ name: "Main Ring", radius: 400 }];
+        const rings = layout === "nested" || parsed.intent === "restore" || parsed.intent === "reduce" || parsed.intent === "expand" || mode === "compact"
+            ? [{ name: "Outer Ring", radius: 400, nested: false, activatesWithOuter: true }, { name: "Inner Ring", radius: 300, nested: true, activatesWithOuter: true }]
+            : [{ name: "Main Ring", radius: 400, nested: false, activatesWithOuter: true }];
 
         const sigilObjects: any[] = sigils.map((name, index) => {
             if (layout === "bilateral" || layout === "manual") {
@@ -254,7 +263,7 @@ export function generateCompositionCandidates(effect: string, availableSigils: S
                 rings,
                 sigils: sigilObjects,
                 signs: signObjects,
-                lines: layout === "linked" ? [{ name: "Linked Seal", color: "#000000", weight: 6, points: [{ x: 400, y: 0 }, { x: 520, y: 0 }] }] : [],
+                lines: layout === "linked" ? [{ name: "Linked Seal", color: "#000000", weight: 6, linked: true, startSeal: 0, endSeal: 1, points: [{ x: 400, y: 0 }, { x: 520, y: 0 }] }] : [],
             }],
         });
     }

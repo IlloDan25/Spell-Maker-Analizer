@@ -23,10 +23,6 @@ export async function loadCustomImages(lastSpell: SpellType | null) {
         if (img.file && img.name && myp5) {
             try {
                 const symbolImage = await myp5.loadImage(img.file);
-                symbolImage.resize(
-                    myp5.constrain(symbolImage.width, 100, 1000),
-                    myp5.constrain(symbolImage.height, 100, 1000)
-                );
                 symbolsImages.customs["custom_" + img.name] = symbolImage;
             } catch (error) {
                 console.warn(`Failed to load custom image: ${img.name}`, error);

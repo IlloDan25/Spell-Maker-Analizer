@@ -33,7 +33,7 @@ export default function updateCustomTabs() {
     divIO?.appendChild(
         <section id="effect-generator" class="mb-4">
             <h2 class="h3 mb-2">Design a Spell from an Effect</h2>
-            <label for="spell-effect" class="form-label">What should the spell do?</label>
+            <label htmlFor="spell-effect" class="form-label">What should the spell do?</label>
             <textarea id="spell-effect" class="form-control mb-2" rows={2}
                 placeholder="For example: make it rain or help me fly"
                 aria-describedby="spell-effect-help spell-effect-status" />

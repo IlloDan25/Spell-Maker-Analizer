@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { WitchHatAtelierSpellMaker as SpellType } from "../types/spell.ts";
 
+import { getRadialSignIndices } from "../src/layout.ts";
 import {
     explainSpellComposition,
     findSpellRecipe,
@@ -67,6 +68,40 @@ test("English and Spanish unbreakable requests share valid protective intent", (
     );
 });
 
+test("manual sigil and sign positions remain exact and independent from crowns", () => {
+    const spell = {
+        custom: { images: [] },
+        seals: [{
+            name: "Manual Seal",
+            rings: [{ name: "Main Ring", radius: 400 }],
+            sigils: [{
+                name: "sigil_Fire",
+                positions: [{ x: 100, y: -150, angle: 45, size: 260 }],
+            }],
+            signs: [{
+                name: "sign_Column",
+                amount: 8,
+                positions: [
+                    { x: -300, y: 100, angle: 90, size: 180 },
+                    { x: 300, y: -100, angle: 270, size: 220 },
+                ],
+            }],
+        }],
+    } as unknown as SpellType;
+
+    const seal = spell.seals[0];
+    assert.equal(seal.sigils?.[0].positions?.length, 1);
+    assert.deepEqual(seal.sigils?.[0].positions?.[0], { x: 100, y: -150, angle: 45, size: 260 });
+    assert.equal(seal.signs?.[0].positions?.length, 2);
+    assert.deepEqual(seal.signs?.[0].positions?.[0], { x: -300, y: 100, angle: 90, size: 180 });
+});
+
+test("radial signs remain evenly distributed when signs are skipped", () => {
+    assert.deepEqual(getRadialSignIndices(8, 0), [0, 1, 2, 3, 4, 5, 6, 7]);
+    assert.deepEqual(getRadialSignIndices(8, 2), [0, 1, 3, 4, 5, 7]);
+    assert.deepEqual(getRadialSignIndices(4, 1), [0, 1, 3]);
+});
+
 test("creative layouts use one centered sigil and bounded concentric signs", () => {
     const recipe = generateSpellRecipe("make blue flowers dance gently in the air");
 
@@ -117,6 +152,7 @@ test("exposes custom images only in their selected role", () => {
 test("explains custom sigils and signs using the saved description", () => {
     const explanation = explainSpellComposition({
         name: "Custom Test",
+        description: "Creates concentrated light and pushes it outward",
         custom: {
             images: [{ name: "Sun Core", role: "sigil", description: "Creates concentrated sunlight" }, { name: "Sun Rays", role: "sign", description: "Spreads light outward" }],
         },
@@ -128,9 +164,27 @@ test("explains custom sigils and signs using the saved description", () => {
         }],
     } as unknown as SpellType);
 
+    assert.match(explanation, /Creates concentrated light and pushes it outward/);
     assert.match(explanation, /Creates concentrated sunlight/);
     assert.match(explanation, /Spreads light outward/);
     assert.match(explanation, /fan-defined/i);
+});
+
+test("warns when a custom image is placed outside its declared role", () => {
+    const explanation = explainSpellComposition({
+        name: "Misplaced Custom",
+        custom: {
+            images: [{ name: "Outward Rays", role: "sign", description: "Spreads the effect outward" }],
+        },
+        seals: [{
+            name: "Test Seal",
+            rings: [{ name: "Main Ring", radius: 300 }],
+            sigils: [{ name: "custom_Outward Rays", size: 220 }],
+        }],
+    } as unknown as SpellType);
+
+    assert.match(explanation, /declared as a sign.*placed in the sigil list/i);
+    assert.match(explanation, /Spreads the effect outward/);
 });
 
 test("explains circle components and sign properties", () => {

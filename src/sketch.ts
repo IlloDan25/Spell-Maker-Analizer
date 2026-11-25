@@ -2,6 +2,7 @@ import p5 from "p5";
 import type { Sign as SignType, WitchHatAtelierSpellMaker as SpellType } from "../types/spell";
 import type { SymbolsImages } from "../types/symbols";
 import { jsonEditor } from "./form";
+import { getRadialSignIndices } from "./layout";
 
 import symbols from "./data/symbols.json";
 import schema from "./schemas/spell.json";
@@ -283,12 +284,15 @@ const sketch = (p: p5) => {
                 const symbolSize = symbol.size ?? symbolDefaults.size;
                 const symbolAngle = symbol.angle ?? symbolDefaults.angle;
 
-                const symbolOffsetStrafe = symbol.offsetStrafe ?? symbolDefaults.offsetX;
+                const symbolOffsetStrafe = symbol.offsetStrafe
+                    ?? (symbolDrawType === "sign" ? symbolDefaults.offsetStrafe : symbolDefaults.offsetX);
                 const symbolOffsetX = symbol.offsetX ?? symbolDefaults.offsetX;
                 const symbolOffsetY = symbol.offsetY ?? symbolDefaults.offsetY;
 
                 const symbolAmount = symbol.amount ?? symbolDefaults.amount;
-                const symbolAmountDraw = (symbol.amount ?? symbolDefaults.amount) - (symbol.amountSkip ?? symbolDefaults.amountSkip);
+                const symbolAmountDrawIndices = symbolDrawType === "sign"
+                    ? getRadialSignIndices(symbolAmount, symbol.amountSkip ?? symbolDefaults.amountSkip)
+                    : Array.from({ length: symbolAmount }, (_, index) => index);
 
 
 
@@ -337,20 +341,32 @@ const sketch = (p: p5) => {
 
 
                 // Drawing each of the sigils/signs in the circle
-                for (let i = 0; i < symbolAmountDraw; i++) {
+                const manualPositions = ((symbol as SignType & { positions?: Array<{ x?: number, y?: number, angle?: number, size?: number }> }).positions ?? null);
+
+                const positionsToDraw = manualPositions && manualPositions.length > 0
+                    ? manualPositions.map(position => ({
+                        i: 0,
+                        x: position.x ?? 0,
+                        y: position.y ?? 0,
+                        angle: position.angle ?? symbolAngle,
+                        size: position.size ?? symbolSize,
+                    }))
+                    : symbolAmountDrawIndices.map(i => ({ i, x: symbolOffsetX, y: symbolOffsetY, angle: symbolAngle, size: symbolSize }));
+
+                for (const position of positionsToDraw) {
                     p.push(); // SIGILS & SIGNS
 
-                    // Translate the center of the sigil location/sign circle
-                    p.translate(symbolOffsetX, symbolOffsetY);
+                    // Manual positions override the crown and retain exact local placement.
+                    p.translate(manualPositions ? position.x : symbolOffsetX, manualPositions ? position.y : symbolOffsetY);
 
                     // The best way imagine these transformation is to imagine them
                     // happening in the opposite way they are defined in the code
-                    if (symbolDrawType === "sign") {
+                    if (symbolDrawType === "sign" && !manualPositions) {
                         // Rotate around center of the sign circle with an
                         // offset based on the index of the current sign
                         p.rotate(
                             (symbol.rotation ?? symbolDefaults.rotation) +
-                            i * 360 / symbolAmount
+                            position.i * 360 / symbolAmount
                         );
 
                         // Translate to the upper part of the sign circle
@@ -362,12 +378,12 @@ const sketch = (p: p5) => {
                     }
 
                     // Rotate around the sigil/sign center
-                    p.rotate(symbolAngle);
+                    p.rotate(position.angle);
 
                     if (tintedImage) {
-                        p.image(tintedImage, 0, 0, symbolSize, symbolSize);
+                        p.image(tintedImage, 0, 0, position.size, position.size);
                     } else {
-                        p.image(symbolImage, 0, 0, symbolSize, symbolSize);
+                        p.image(symbolImage, 0, 0, position.size, position.size);
                     }
 
                     // Draw borders around the symbols
@@ -376,7 +392,7 @@ const sketch = (p: p5) => {
                         p.noFill();
                         p.strokeWeight(1 / sealScale);
                         p.stroke(tintColor);
-                        p.rect(0, 0, symbolSize, symbolSize);
+                        p.rect(0, 0, position.size, position.size);
                     }
 
                     p.pop(); // SIGILS & SIGNS

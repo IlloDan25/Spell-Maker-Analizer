@@ -259,6 +259,18 @@ function signSemantics(name: string, spell?: SpellType): string {
     return semanticMap[baseName] ?? `applies the documented ${baseName} modifier`;
 }
 
+function customRoleStatus(spell: SpellType, name: string, expectedRole: "sigil" | "sign"): string {
+    if (!name.startsWith("custom_")) return "";
+
+    const customName = name.replace(/^custom_/, "");
+    const custom = spell.custom?.images?.find((image: any) => image.name === customName);
+    if (!custom) return "";
+
+    const role = custom.role ?? "both";
+    if (role === "both" || role === expectedRole) return "";
+    return ` Warning: this custom image is declared as a ${role}, but is placed in the ${expectedRole} list.`;
+}
+
 function sigilSemantics(name: string, spell?: SpellType): string {
     const baseName = name.replace(/^sigil_/, "");
     const semanticMap: Record<string, string> = {
@@ -312,13 +324,14 @@ export function explainSpellComposition(spell: SpellType): string {
                     : "normally oriented";
 
             const prefixText = sign.prefix ? `${sign.prefix} ` : "";
-            return `SIGN(${prefixText}${name.replace(/^(?:sign_|custom_)/, "")}, count=${amount}, radius=${radius}, rotation=${rotation}): ${direction}; ${signSemantics(name, spell)}.`;
+            return `SIGN(${prefixText}${name.replace(/^(?:sign_|custom_)/, "")}, count=${amount}, radius=${radius}, rotation=${rotation}): ${direction}; ${signSemantics(name, spell)}.${customRoleStatus(spell, name, "sign")}`;
         }).join(" ");
 
         const effectText = sigils.length
             ? sigils.map(sigil => {
                 const prefixText = sigil.prefix ? `${sigil.prefix} ` : "";
-                return `${prefixText}${sigilSemantics(sigil.name ?? "", spell)}`;
+                const name = sigil.name ?? "";
+                return `${prefixText}${sigilSemantics(name, spell)}.${customRoleStatus(spell, name, "sigil")}`;
             }).join(" In addition, ")
             : "No sigil is present; the result depends mainly on the signs and ring.";
 
@@ -336,7 +349,12 @@ export function explainSpellComposition(spell: SpellType): string {
         return `Seal ${sealIndex + 1}: ${effectText} ${signText ? `The sign grammar is ${signText}` : "No signs modify the sigil."} ${balanceText}${roleText}\nSyntax: ${grammar}`;
     });
 
-    return explanations.join("\n\n");
+    const description = spell.description?.trim();
+    const summary = description
+        ? `Spell description: ${description}\n\n`
+        : "Spell description: No effect description has been provided.\n\n";
+
+    return summary + explanations.join("\n\n");
 }
 
 export const supportedSpellEffects = [

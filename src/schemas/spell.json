@@ -293,10 +293,7 @@
                                     "type": "string",
                                     "format": "select",
                                     "title": "Sigil Symbol",
-                                    "default": "sigil_Water",
-                                    "enum": [
-                                        "sigil_Water"
-                                    ]
+                                    "default": "sigil_Water"
                                 },
                                 "size": {
                                     "$ref": "#/definitions/size",
@@ -314,6 +311,33 @@
                                 "offsetY": {
                                     "$ref": "#/definitions/offset",
                                     "title": "Sigil Vertical Offset"
+                                },
+                                "positions": {
+                                    "type": "array",
+                                    "format": "tabs",
+                                    "title": "Manual Sigil Positions",
+                                    "items": {
+                                        "type": "object",
+                                        "title": "Sigil Position",
+                                        "properties": {
+                                            "x": {
+                                                "$ref": "#/definitions/offset",
+                                                "title": "Horizontal Position"
+                                            },
+                                            "y": {
+                                                "$ref": "#/definitions/offset",
+                                                "title": "Vertical Position"
+                                            },
+                                            "angle": {
+                                                "$ref": "#/definitions/angle",
+                                                "title": "Local Sigil Angle"
+                                            },
+                                            "size": {
+                                                "$ref": "#/definitions/size",
+                                                "title": "Local Sigil Size"
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -361,10 +385,7 @@
                                     "type": "string",
                                     "format": "select",
                                     "title": "Sign Symbol",
-                                    "default": "sign_Column",
-                                    "enum": [
-                                        "sign_Column"
-                                    ]
+                                    "default": "sign_Column"
                                 },
                                 "size": {
                                     "$ref": "#/definitions/size",
@@ -407,6 +428,33 @@
                                 "offsetY": {
                                     "$ref": "#/definitions/offset",
                                     "title": "Sign Circle Vertical Offset"
+                                },
+                                "positions": {
+                                    "type": "array",
+                                    "format": "tabs",
+                                    "title": "Manual Sign Positions",
+                                    "items": {
+                                        "type": "object",
+                                        "title": "Sign Position",
+                                        "properties": {
+                                            "x": {
+                                                "$ref": "#/definitions/offset",
+                                                "title": "Horizontal Position"
+                                            },
+                                            "y": {
+                                                "$ref": "#/definitions/offset",
+                                                "title": "Vertical Position"
+                                            },
+                                            "angle": {
+                                                "$ref": "#/definitions/angle",
+                                                "title": "Local Sign Angle"
+                                            },
+                                            "size": {
+                                                "$ref": "#/definitions/size",
+                                                "title": "Local Sign Size"
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }

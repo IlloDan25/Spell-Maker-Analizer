@@ -37,6 +37,21 @@ test("creative generation is deterministic", () => {
     assert.deepEqual(first, second);
 });
 
+test("creative layouts use stable concentric positions", () => {
+    const recipe = generateSpellRecipe("make blue flowers dance gently in the air");
+
+    assert.ok(recipe);
+    const seal = recipe.seals[0];
+    assert.ok(seal.rings && seal.rings.length >= 1);
+
+    for (const sign of seal.signs ?? []) {
+        assert.ok((sign.amount ?? 0) >= 4);
+        assert.equal(sign.amountSkip ?? 0, 0);
+        assert.equal(sign.angle ?? 0, 0);
+        assert.ok((sign.radius ?? 0) > 0 && (sign.radius ?? 0) < 400);
+    }
+});
+
 test("creative symbols exist in the project symbol catalog", () => {
     const recipe = generateSpellRecipe("protect the road and push enemies away");
 

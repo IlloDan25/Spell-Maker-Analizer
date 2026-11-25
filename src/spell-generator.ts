@@ -164,27 +164,33 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
     const otherSigils = sigils.filter((_, index) => index !== sigilIndex).slice(0, 1);
 
     const selectedSigns = uniqueNames(signs.slice(0, 4));
-    const ringCount = 1 + (mixedIndex(seed, 2, 3));
-    const rings = Array.from({ length: ringCount }, (_, index) => ({
+    const ringCount = 1 + (mixedIndex(seed, 2, 2));
+    const ringRadii = ringCount === 1 ? [380] : [380, 250];
+    const rings = ringRadii.map((radius, index) => ({
         name: ringCount === 1 ? "Main Ring" : `Ring ${index + 1}`,
-        radius: 320 - index * 95,
+        radius,
     }));
 
     const sigilObjects = [
-        { name: primarySigil, size: 180 + mixedIndex(seed, 3, 81), angle: mixedIndex(seed, 4, 360) },
+        { name: primarySigil, size: 210, angle: 0 },
         ...otherSigils.map((name, index) => ({
             name,
-            size: 130 + mixedIndex(seed, 5 + index, 61),
-            offsetX: (mixedIndex(seed, 7 + index, 81) - 40),
+            size: 120,
+            angle: 0,
+            offsetX: index % 2 === 0 ? 150 : -150,
+            offsetY: 0,
         })),
     ];
 
-    const signObjects = selectedSigns.map((name, index) => ({
+    const stableAmounts = [4, 6, 8];
+    const stableRadii = [155, 225, 295];
+    const signObjects = selectedSigns.slice(0, 3).map((name, index) => ({
         name,
-        amount: 2 + mixedIndex(seed, 9 + index, 5),
-        radius: 220 + index * 55,
-        angle: mixedIndex(seed, 14 + index, 360),
-        rotation: mixedIndex(seed, 19 + index, 360),
+        amount: stableAmounts[index],
+        amountSkip: 0,
+        radius: stableRadii[index],
+        angle: 0,
+        rotation: index * 45,
     }));
 
     const requestLabel = effect.replace(/variant=.*/, "").split(/\s+/).slice(0, 4).join(" ").trim() || "Experimental";

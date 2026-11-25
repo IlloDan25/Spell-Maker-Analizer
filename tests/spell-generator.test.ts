@@ -53,23 +53,42 @@ test("English and Spanish unbreakable requests share valid protective intent", (
         assert.ok(seal.signs?.length);
     }
 
-    assert.notEqual(english.name, spanish.name);
+    assert.deepEqual(
+        english.seals.map(seal => ({
+            rings: seal.rings,
+            sigils: seal.sigils,
+            signs: seal.signs,
+        })),
+        spanish.seals.map(seal => ({
+            rings: seal.rings,
+            sigils: seal.sigils,
+            signs: seal.signs,
+        })),
+    );
 });
 
-test("creative layouts use stable concentric positions", () => {
+test("creative layouts use one centered sigil and bounded concentric signs", () => {
     const recipe = generateSpellRecipe("make blue flowers dance gently in the air");
 
     assert.ok(recipe);
     const seal = recipe.seals[0];
     assert.ok(seal.rings && seal.rings.length >= 1);
 
+    assert.equal(seal.sigils?.length, 1);
+    assert.equal(seal.sigils?.[0].offsetX ?? 0, 0);
+    assert.equal(seal.sigils?.[0].offsetY ?? 0, 0);
+
+    assert.ok((seal.signs?.length ?? 0) <= 2);
     for (const sign of seal.signs ?? []) {
-        assert.equal(sign.size ?? 0, 150);
+        assert.equal(sign.size ?? 0, 120);
         assert.ok((sign.amount ?? 0) >= 4);
         assert.equal(sign.amountSkip ?? 0, 0);
         assert.equal(sign.angle ?? 0, 0);
         const outerRingRadius = seal.rings?.[0]?.radius ?? 400;
-        assert.ok((sign.radius ?? 0) + (sign.size ?? 150) / 2 <= outerRingRadius);
+        assert.equal(sign.offsetX ?? 0, 0);
+        assert.equal(sign.offsetY ?? 0, 0);
+        assert.equal(sign.offsetStrafe ?? 0, 0);
+        assert.ok((sign.radius ?? 0) + (sign.size ?? 120) / 2 <= outerRingRadius);
     }
 });
 

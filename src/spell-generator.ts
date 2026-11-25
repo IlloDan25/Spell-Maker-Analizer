@@ -69,15 +69,35 @@ const spellRecipes: SpellRecipe[] = [
 ];
 
 function normalizeEffect(effect: string): string {
-    const normalized = effect.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    let normalized = effect.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9\s]/g, " ")
         .replace(/\s+/g, " ");
 
-    if (/\b(?:unbreakable|indestructible|invulnerable|invencible|irrompible|resistant|resistente|ineditable)\b/.test(normalized)) {
-        return normalized.replace(/\b(?:unbreakable|indestructible|invulnerable|invencible|irrompible|resistant|resistente|ineditable)\b/g, "unbreakable");
-    }
+    const intentAliases: Array<[RegExp, string]> = [
+        [/\b(?:unbreakable|indestructible|invulnerable|invencible|irrompible|resistant|resistente|ineditable)\b/, "strength"],
+        [/\b(?:rain|lluvia|llover|llueve|llueva)\b/, "rain"],
+        [/\b(?:break|crush|pulverize|romper|crushar|pulverizar|desintegrar)\b/, "break"],
+        [/\b(?:restore|repair|recomponer|reconstruir|restaurar|rearmar)\b/, "restore"],
+        [/\b(?:shrink|reduce|reducir|encoger|empequecer|miniaturizar)\b/, "reduce"],
+        [/\b(?:expand|enlarge|grow|agrandar|expandir|crecer|aumentar)\b/, "expand"],
+        [/\b(?:fly|flight|levitate|float|volar|vuelo|levitar|flotar)\b/, "flight"],
+        [/\b(?:fire|flame|burn|heat|fuego|llama|calor)\b/, "fire"],
+        [/\b(?:water|agua|ice|hielo|cold|frio)\b/, "water"],
+        [/\b(?:earth|stone|rock|sand|soil|tierra|roca|arena|piedra)\b/, "earth"],
+        [/\b(?:wind|air|viento|aire)\b/, "wind"],
+        [/\b(?:light|glow|luz|brillar|iluminar)\b/, "light"],
+        [/\b(?:hide|conceal|shadow|ocultar|esconder|sombra)\b/, "conceal"],
+        [/\b(?:move|motion|mover|movimiento)\b/, "movement"],
+        [/\b(?:clean|purify|limpiar|purificar)\b/, "purify"],
+    ];
 
-    return normalized;
+    const intents = intentAliases
+        .filter(([pattern]) => pattern.test(normalized))
+        .map(([, intent]) => intent);
+
+    normalized = [...new Set(intents)].join(" ");
+    return normalized || effect.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ");
 }
 
 interface CompositionCandidate {
@@ -167,10 +187,9 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
 
     const sigilIndex = mixedIndex(seed, 0, sigils.length);
     const primarySigil = sigils[sigilIndex];
-    const otherSigils = sigils.filter((_, index) => index !== sigilIndex).slice(0, 1);
 
-    const selectedSigns = uniqueNames(signs.slice(0, 4));
-    const ringCount = 1 + (mixedIndex(seed, 2, 2));
+    const selectedSigns = uniqueNames(signs.slice(0, 2));
+    const ringCount = normalized.includes(" ") || selectedSigns.length > 1 ? 2 : 1;
     const ringRadii = ringCount === 1 ? [400] : [400, 300];
     const rings = ringRadii.map((radius, index) => ({
         name: ringCount === 1 ? "Main Ring" : `Ring ${index + 1}`,
@@ -178,21 +197,17 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
     }));
 
     const sigilObjects = [
-        { name: primarySigil, size: 210, angle: 0 },
-        ...otherSigils.map((name, index) => ({
-            name,
-            size: 120,
-            angle: 0,
-            offsetX: index % 2 === 0 ? 170 : -170,
-            offsetY: 0,
-        })),
+        { name: primarySigil, size: 180, angle: 0, offsetX: 0, offsetY: 0 },
     ];
 
-    const stableAmounts = [4, 6, 8];
-    const stableRadii = [155, 220, 285];
-    const signObjects = selectedSigns.slice(0, 3).map((name, index) => ({
+    const stableAmounts = [4, 8];
+    const stableRadii = [220, 300];
+    const signObjects = selectedSigns.slice(0, 2).map((name, index) => ({
         name,
-        size: 150,
+        size: 120,
+        offsetX: 0,
+        offsetY: 0,
+        offsetStrafe: 0,
         amount: stableAmounts[index],
         amountSkip: 0,
         radius: stableRadii[index],

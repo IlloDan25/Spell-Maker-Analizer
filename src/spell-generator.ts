@@ -121,7 +121,7 @@ function filterAvailable(names: string[], available: Set<string>): string[] {
 }
 
 const creativeTemplates: Record<string, { sigil: string; signs: string[]; ringCount: number }> = {
-    strength: { sigil: "sigil_Earth", signs: ["sign_Empower", "sign_Stability", "sign_Solidify"], ringCount: 2 },
+    strength: { sigil: "sigil_Earth", signs: ["sign_Empower", "sign_Solidify"], ringCount: 2 },
     fire: { sigil: "sigil_Fire", signs: ["sign_Launch", "sign_Dispersion"], ringCount: 1 },
     water: { sigil: "sigil_Water", signs: ["sign_Column", "sign_Holding"], ringCount: 1 },
     earth: { sigil: "sigil_Earth", signs: ["sign_Solidify", "sign_Stability"], ringCount: 1 },
@@ -240,7 +240,7 @@ function signSemantics(name: string, spell?: SpellType): string {
         "Levitation": "lifts and balances a target",
         "Stability": "holds an object on a stable plane",
         "Solidify": "makes material hard or rigid",
-        "Empower": "strengthens the affected magic or object",
+        "Empower": "strengthens or reinforces the affected magic or solid object",
         "Envelop": "surrounds the target with the effect",
         "Dispersion": "spreads the effect outward",
         "Rain": "summons a rain-like manifestation",
@@ -289,6 +289,23 @@ function sigilSemantics(name: string, spell?: SpellType): string {
     return semanticMap[baseName] ?? `uses the ${baseName} sigil as the effect type`;
 }
 
+function requestedEffectAdvice(requestedEffect: string | null): string {
+    if (!requestedEffect) return "";
+
+    const normalized = requestedEffect.toLowerCase();
+    if (/unbreakable|irrompible|indestructible|durable|strength|resist/.test(normalized)) {
+        return "\nLikely intent: harden or strengthen the solid object. The Earth sigil controls solid material; Empowerment strengthens it and Solidification makes it rigid. This is an unconfirmed fan proposal: for an object drawn on, the absent Selection sign is needed to limit the effect to that object, and the seal should be drawn directly on or linked to the sword.";
+    }
+
+    return "";
+}
+
+function requestedEffectFromDescription(description?: string): string | null {
+    if (!description) return null;
+    const match = description.match(/Generated from your request:\s*([^\n]+)/i);
+    return match?.[1]?.trim() || null;
+}
+
 export function explainSpellComposition(spell: SpellType): string {
     const seals = spell.seals ?? [];
     if (seals.length === 0) return "No seal exists: add at least one outer ring.";
@@ -324,37 +341,55 @@ export function explainSpellComposition(spell: SpellType): string {
                     : "normally oriented";
 
             const prefixText = sign.prefix ? `${sign.prefix} ` : "";
-            return `SIGN(${prefixText}${name.replace(/^(?:sign_|custom_)/, "")}, count=${amount}, radius=${radius}, rotation=${rotation}): ${direction}; ${signSemantics(name, spell)}.${customRoleStatus(spell, name, "sign")}`;
+            const positions = (sign as typeof sign & { positions?: Array<{ x?: number, y?: number, angle?: number, size?: number }> }).positions;
+            const placement = positions?.length
+                ? `; manual positions=${positions.map(position => `(${position.x ?? 0},${position.y ?? 0}; angle=${position.angle ?? 0}; size=${position.size ?? sign.size ?? 200})`).join(" ")}`
+                : `; radial count=${amount}, radius=${radius}, rotation=${rotation}`;
+            return `SIGN(${prefixText}${name.replace(/^(?:sign_|custom_)/, "")}${placement}): ${direction}; ${signSemantics(name, spell)}.${customRoleStatus(spell, name, "sign")}`;
         }).join(" ");
 
         const effectText = sigils.length
             ? sigils.map(sigil => {
                 const prefixText = sigil.prefix ? `${sigil.prefix} ` : "";
                 const name = sigil.name ?? "";
-                return `${prefixText}${sigilSemantics(name, spell)}.${customRoleStatus(spell, name, "sigil")}`;
+                const positions = (sigil as typeof sigil & { positions?: Array<{ x?: number, y?: number, angle?: number, size?: number }> }).positions;
+                const placement = positions?.length
+                    ? `; manual positions=${positions.map(position => `(${position.x ?? 0},${position.y ?? 0}; angle=${position.angle ?? 0}; size=${position.size ?? sigil.size ?? 400})`).join(" ")}`
+                    : `; position=(${sigil.offsetX ?? 0},${sigil.offsetY ?? 0}), angle=${sigil.angle ?? 0}, size=${sigil.size ?? 400}`;
+                return `${prefixText}${sigilSemantics(name, spell)}${placement}.${customRoleStatus(spell, name, "sigil")}`;
             }).join(" In addition, ")
             : "No sigil is present; the result depends mainly on the signs and ring.";
 
         const balanceText = signs.length
-            ? "Signs are balanced only if their counts and radii are symmetric; unequal crowns can change direction or destabilize the spell."
+            ? "Balance depends on sign size, radius and placement. Unequal or one-sided signs can redirect the effect; radial crowns should usually preserve bilateral or radial symmetry."
             : "No signs are present; a ring alone may cause a rapid discharge of energy.";
 
         const grammar = `SEAL{${ringText} | ${sigils.map(sigil => `SIGIL(${sigil.name?.replace(/^(?:sigil_|custom_)/, "") ?? "?"})`).join(" + ")} | ${signs.map(sign => `SIGN(${sign.name?.replace(/^(?:sign_|custom_)/, "") ?? "?"}, ${sign.amount ?? 1}@${sign.radius ?? 0})`).join(" + ")}}`;
+
+        const linkedText = (seal.lines?.length ?? 0) > 0
+            ? ` This seal also contains ${seal.lines!.length} line${seal.lines!.length === 1 ? "" : "s"}; linked lines can combine it with another seal according to WHA linked-spell rules.`
+            : "";
 
         const customCount = [...sigils, ...signs].filter(symbol => symbol.name?.startsWith("custom_")).length;
         const roleText = customCount
             ? ` This seal uses ${customCount} custom symbol${customCount === 1 ? "" : "s"}; custom descriptions are fan-defined and are not confirmed by the wiki.`
             : "";
 
-        return `Seal ${sealIndex + 1}: ${effectText} ${signText ? `The sign grammar is ${signText}` : "No signs modify the sigil."} ${balanceText}${roleText}\nSyntax: ${grammar}`;
+        return `Seal ${sealIndex + 1}: ${effectText} ${signText ? `The sign grammar is ${signText}` : "No signs modify the sigil."} ${balanceText}${roleText}${linkedText}\nSyntax: ${grammar}`;
     });
 
     const description = spell.description?.trim();
-    const summary = description
-        ? `Spell description: ${description}\n\n`
-        : "Spell description: No effect description has been provided.\n\n";
+    const requestedEffect = requestedEffectFromDescription(description);
+    const generatedProposal = description?.includes("New creative proposal") ?? false;
+    const summary = requestedEffect
+        ? `Requested effect: ${requestedEffect}\n` + (generatedProposal
+            ? "Status: unconfirmed creative proposal. This composition suggests a possible form; it is not a documented WHA spell."
+            : "Status: review the composition below for spell structure and fan-defined custom meanings.")
+        : description
+            ? `Spell description: ${description}`
+            : "Spell description: No effect description has been provided.";
 
-    return summary + explanations.join("\n\n");
+    return summary + requestedEffectAdvice(requestedEffect) + "\n\n" + explanations.join("\n\n");
 }
 
 export const supportedSpellEffects = [

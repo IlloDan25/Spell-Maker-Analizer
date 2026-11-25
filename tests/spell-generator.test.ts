@@ -170,6 +170,24 @@ test("explains custom sigils and signs using the saved description", () => {
     assert.match(explanation, /fan-defined/i);
 });
 
+test("explains unbreakable requests as a proposal and names missing targeting", () => {
+    const explanation = explainSpellComposition({
+        name: "Experimental strength",
+        description: "Generated from your request: Make my sword unbreakable\n\nType: New creative proposal",
+        seals: [{
+            name: "Strength",
+            rings: [{ name: "Outer Ring", radius: 400 }],
+            sigils: [{ name: "sigil_Earth", size: 180 }],
+            signs: [{ name: "sign_Empower", amount: 6, radius: 240 }, { name: "sign_Solidify", amount: 8, radius: 310 }],
+        }],
+    } as unknown as SpellType);
+
+    assert.match(explanation, /Requested effect: Make my sword unbreakable/);
+    assert.match(explanation, /unconfirmed fan proposal/i);
+    assert.match(explanation, /Selection sign/i);
+    assert.match(explanation, /Earth sigil/i);
+});
+
 test("warns when a custom image is placed outside its declared role", () => {
     const explanation = explainSpellComposition({
         name: "Misplaced Custom",

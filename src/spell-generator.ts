@@ -100,44 +100,6 @@ function normalizeEffect(effect: string): string {
         .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ");
 }
 
-interface CompositionCandidate {
-    score: number;
-    variation: number;
-    recipe: SpellRecipe;
-}
-
-const creativeSigilRules: Array<{ keywords: RegExp; symbols: string[] }> = [
-    { keywords: /fire|flame|burn|heat|calor|fuego|llama/, symbols: ["sigil_Fire", "sigil_Light", "sigil_Unburning Flames"] },
-    { keywords: /water|rain|ice|cold|agua|lluvia|hielo|frio/, symbols: ["sigil_Water", "sigil_Crystalize", "sigil_Purification"] },
-    { keywords: /earth|stone|rock|sand|soil|tierra|roca|arena|piedra|unbreakable|indestructible|invulnerable|invencible|resistan/, symbols: ["sigil_Earth", "sigil_Sand", "sigil_Bridging"] },
-    { keywords: /wind|air|fly|flight|levitat|float|viento|aire|volar|flotar/, symbols: ["sigil_Wind", "sigil_Aeriforms", "sigil_Wind Underfoot", "sigil_Whorling Winds"] },
-    { keywords: /light|glow|luz|brillar|illum/, symbols: ["sigil_Light", "sigil_Flickering Light"] },
-    { keywords: /time|stop|freeze|repet|tempo|tiempo/, symbols: ["sigil_Repetition", "sigil_Stop"] },
-    { keywords: /sword|weapon|espada/, symbols: ["sigil_Sword"] },
-    { keywords: /call|echo|sound|llamar|voz|voice/, symbols: ["sigil_Calling"] },
-    { keywords: /guid|direct|aim|guide|guia/, symbols: ["sigil_Guidance"] },
-];
-
-const creativeSignRules: Array<{ keywords: RegExp; symbols: string[] }> = [
-    { keywords: /grow|expand|enlarg|agrand|crec|aument/, symbols: ["sign_Enlarge", "sign_Column"] },
-    { keywords: /reduc|shrink|encog|pequen|miniatur/, symbols: ["sign_Enlarge (Inverted)", "sign_Diamond"] },
-    { keywords: /levitat|float|fly|flotar|volar|levit/, symbols: ["sign_Levitation", "sign_Float", "sign_Stability"] },
-    { keywords: /pull|grasp|atraer|tirar/, symbols: ["sign_Pull", "sign_Convergence"] },
-    { keywords: /push|expel|push away|empuj/, symbols: ["sign_Region", "sign_Dispersion"] },
-    { keywords: /break|crush|pulver|destr|romper|desintegr/, symbols: ["sign_Crush", "sign_Column", "sign_Launch"] },
-    { keywords: /reassembl|restore|recompon|reunir|repair/, symbols: ["sign_Enlarge (Inverted)", "sign_Crush", "sign_Convergence"] },
-    { keywords: /cold|cool|freeze|frio|hielo|enfri/, symbols: ["sign_Cool", "sign_Solidify", "sign_Stillness"] },
-    { keywords: /hide|conceal|shadow|cloak|escon|ocult/, symbols: ["sign_Conceal", "sign_Envelop", "sign_Reflect"] },
-    { keywords: /protect|shield|strength|fortal|reforz|unbreakable|indestructible|invulnerable|invencible|resistan/, symbols: ["sign_Empower", "sign_Stability", "sign_Solidify", "sign_Envelop"] },
-    { keywords: /bind|hold|entwine|atar|sujetar|inmobil/, symbols: ["sign_Bind", "sign_Entwine", "sign_Immobility"] },
-    { keywords: /rain|lluvia|summon|conj/, symbols: ["sign_Rain", "sign_Gather", "sign_Orb"] },
-    { keywords: /light|bright|glow|luz|brillar/, symbols: ["sign_Launch", "sign_Column", "sign_Dispersion"] },
-    { keywords: /move|dart|motion|mover|movimiento/, symbols: ["sign_Puppet", "sign_Focus", "sign_Region"] },
-    { keywords: /clean|purif|limpi/, symbols: ["sign_Purify", "sign_Refuse", "sign_Collection"] },
-    { keywords: /portal|window|door|puerta|ventana/, symbols: ["sign_Window", "sign_Windowway", "sign_Region"] },
-    { keywords: /water|wave|wash|aguas|olas/, symbols: ["sign_Column", "sign_Partition", "sign_Holding"] },
-];
-
 function hashText(text: string): number {
     let hash = 2166136261;
     for (let i = 0; i < text.length; i++) {
@@ -145,12 +107,6 @@ function hashText(text: string): number {
         hash = Math.imul(hash, 16777619);
     }
     return hash >>> 0;
-}
-
-function mixedIndex(seed: number, index: number, length: number): number {
-    if (length <= 1) return 0;
-    const value = Math.imul(seed ^ (index + 1) * 0x9e3779b9, 0x85ebca6b);
-    return (value >>> 0) % length;
 }
 
 function uniqueNames(names: string[]): string[] {
@@ -164,32 +120,40 @@ function filterAvailable(names: string[], available: Set<string>): string[] {
     return uniqueNames(names.filter(name => available.has(name)));
 }
 
+const creativeTemplates: Record<string, { sigil: string; signs: string[]; ringCount: number }> = {
+    strength: { sigil: "sigil_Earth", signs: ["sign_Empower", "sign_Stability", "sign_Solidify"], ringCount: 2 },
+    fire: { sigil: "sigil_Fire", signs: ["sign_Launch", "sign_Dispersion"], ringCount: 1 },
+    water: { sigil: "sigil_Water", signs: ["sign_Column", "sign_Holding"], ringCount: 1 },
+    earth: { sigil: "sigil_Earth", signs: ["sign_Solidify", "sign_Stability"], ringCount: 1 },
+    wind: { sigil: "sigil_Wind", signs: ["sign_Dispersion", "sign_Levitation"], ringCount: 1 },
+    light: { sigil: "sigil_Light", signs: ["sign_Launch", "sign_Dispersion"], ringCount: 1 },
+    flight: { sigil: "sigil_Wind Underfoot", signs: ["sign_Levitation", "sign_Stability"], ringCount: 2 },
+    rain: { sigil: "sigil_Water", signs: ["sign_Rain", "sign_Dispersion"], ringCount: 1 },
+    break: { sigil: "sigil_Earth", signs: ["sign_Crush", "sign_Column"], ringCount: 1 },
+    restore: { sigil: "sigil_Earth", signs: ["sign_Crush", "sign_Convergence"], ringCount: 2 },
+    reduce: { sigil: "sigil_Repetition", signs: ["sign_Enlarge (Inverted)", "sign_Diamond"], ringCount: 2 },
+    expand: { sigil: "sigil_Repetition", signs: ["sign_Enlarge", "sign_Diamond"], ringCount: 2 },
+    conceal: { sigil: "sigil_Wind", signs: ["sign_Conceal", "sign_Envelop"], ringCount: 1 },
+    movement: { sigil: "sigil_Wind", signs: ["sign_Puppet", "sign_Focus"], ringCount: 1 },
+    purify: { sigil: "sigil_Purification", signs: ["sign_Purify", "sign_Refuse"], ringCount: 1 },
+};
+
 function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0): SpellRecipe {
     const normalized = normalizeEffect(effect);
     const seed = seedOverride ?? hashText(normalized);
 
-    const sigilMatches = creativeSigilRules
-        .filter(rule => rule.keywords.test(normalized))
-        .flatMap(rule => rule.symbols);
-    const signMatches = creativeSignRules
-        .filter(rule => rule.keywords.test(normalized))
-        .flatMap(rule => rule.symbols);
+    const intent = normalized.split(" ").find(token => creativeTemplates[token]) ?? "earth";
+    const template = creativeTemplates[intent];
 
-    const sigils = filterAvailable(sigilMatches.length
-        ? sigilMatches
-        : ["sigil_Repetition", "sigil_Wind", "sigil_Water", "sigil_Fire", "sigil_Earth"], availableSigils);
-    const signs = filterAvailable(signMatches.length
-        ? signMatches
-        : ["sign_Convergence", "sign_Region", "sign_Stability", "sign_Holding"], availableSigns);
+    const sigils = filterAvailable([template.sigil], availableSigils);
+    const signs = filterAvailable(template.signs, availableSigns);
 
     if (sigils.length === 0) sigils.push("sigil_Repetition");
     if (signs.length === 0) signs.push("sign_Convergence");
 
-    const sigilIndex = mixedIndex(seed, 0, sigils.length);
-    const primarySigil = sigils[sigilIndex];
-
-    const selectedSigns = uniqueNames(signs.slice(0, 2));
-    const ringCount = normalized.includes(" ") || selectedSigns.length > 1 ? 2 : 1;
+    const primarySigil = sigils[0];
+    const selectedSigns = uniqueNames(signs).slice(0, 2);
+    const ringCount = template.ringCount;
     const ringRadii = ringCount === 1 ? [400] : [400, 300];
     const rings = ringRadii.map((radius, index) => ({
         name: ringCount === 1 ? "Main Ring" : `Ring ${index + 1}`,
@@ -200,8 +164,8 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
         { name: primarySigil, size: 180, angle: 0, offsetX: 0, offsetY: 0 },
     ];
 
-    const stableAmounts = [4, 8];
-    const stableRadii = [220, 300];
+    const stableAmounts = [6, 8];
+    const stableRadii = [240, 310];
     const signObjects = selectedSigns.slice(0, 2).map((name, index) => ({
         name,
         size: 120,
@@ -212,7 +176,7 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
         amountSkip: 0,
         radius: stableRadii[index],
         angle: 0,
-        rotation: index * 45,
+        rotation: index === 0 ? 0 : 22.5,
     }));
 
     const requestLabel = effect.replace(/variant=.*/, "").split(/\s+/).slice(0, 4).join(" ").trim() || "Experimental";
@@ -223,7 +187,7 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
         name: sealName,
         kind: "creative",
         match: /.*/,
-        evidence: `Deterministic composition search matched ${sigils.length} candidate sigil(s) and ${signs.length} candidate sign(s) for the requested effect.`,
+        evidence: `Canonical ${intent} template uses 1 centered sigil, ${selectedSigns.length} symmetric sign crown(s), and ${ringCount} bounded ring(s).`,
         sourceUrl: "https://witchhatatelier.telepedia.net/wiki/Magic",
         caveat: "This is a new, unconfirmed fan composition. It is not documented by the wiki and may not produce the requested effect. Keywords guide, not prove, the result.",
         seals: [{
@@ -253,86 +217,105 @@ export function generateSpellRecipe(effect: string): SpellRecipe | null {
     const normalized = normalizeEffect(effect);
     if (!normalized) return null;
 
-    const candidates: CompositionCandidate[] = [];
-    for (let variation = 0; variation < 8; variation++) {
-        const seed = hashText(`${normalized}|variant=${variation}`);
-        const recipe = findCreativeRecipe(normalized, seed, variation);
-        let score = 0;
+    const seed = hashText(normalized);
+    const recipe = findCreativeRecipe(normalized, seed, 0);
+    recipe.evidence = "Canonical intent template: one type sigil, symmetric sign crowns, and bounded concentric rings.";
+    return recipe;
+}
 
-        const seal = recipe.seals?.[0];
-        const sigils = seal?.sigils ?? [];
-        const signs = seal?.signs ?? [];
+function signSemantics(name: string): string {
+    const semanticMap: Record<string, string> = {
+        "Enlarge": "enlarges an affected object",
+        "Enlarge (Inverted)": "shrinks an affected object",
+        "Crush": "pulverizes solid material",
+        "Convergence": "concentrates and packs the spell's effect",
+        "Column": "directs the effect along a column",
+        "Levitation": "lifts and balances a target",
+        "Stability": "holds an object on a stable plane",
+        "Solidify": "makes material hard or rigid",
+        "Empower": "strengthens the affected magic or object",
+        "Envelop": "surrounds the target with the effect",
+        "Dispersion": "spreads the effect outward",
+        "Rain": "summons a rain-like manifestation",
+        "Diamond": "defines or isolates the affected area",
+        "Holding": "holds the target while still allowing movement",
+        "Puppet": "allows directed movement",
+        "Focus": "aims the spell at a chosen target",
+        "Purify": "separates waste or contamination",
+        "Refuse": "collects unwanted material",
+        "Conceal": "hides the target",
+        "Envelop": "envelops or coats the target",
+    };
+    const baseName = name.replace(/^sign_/, "");
+    return semanticMap[baseName] ?? `applies the documented ${baseName} modifier`;
+}
 
-        const matchingSigils = creativeSigilRules
-            .filter(rule => rule.keywords.test(normalized))
-            .flatMap(rule => rule.symbols);
-        const matchingSigns = creativeSignRules
-            .filter(rule => rule.keywords.test(normalized))
-            .flatMap(rule => rule.symbols);
-
-        for (const sigil of sigils) {
-            if (matchingSigils.includes(sigil.name as string)) score += 5;
-            else score += 1;
-        }
-        for (const sign of signs) {
-            if (matchingSigns.includes(sign.name as string)) score += 4;
-            else score += 1;
-
-            const amount = sign.amount ?? 1;
-            if (amount >= 2 && amount <= 8) score += 2;
-            if (amount > 1 && 360 % amount === 0) score += 2;
-        }
-
-        const ringCount = seal?.rings?.length ?? 0;
-        if (ringCount >= 1 && ringCount <= 3) score += 2;
-        if (sigils.length >= 1 && sigils.length <= 2) score += 2;
-        if (signs.length >= 2 && signs.length <= 4) score += 2;
-
-        candidates.push({ score, variation, recipe });
-    }
-
-    candidates.sort((a, b) => b.score - a.score || a.variation - b.variation);
-    const selected = candidates[0];
-    if (selected) {
-        selected.recipe.evidence = `Ranked 8 deterministic variants; selected variation ${selected.variation + 1} with a semantic score of ${selected.score}.`;
-    }
-    return selected?.recipe ?? null;
+function sigilSemantics(name: string): string {
+    const baseName = name.replace(/^sigil_/, "");
+    const semanticMap: Record<string, string> = {
+        Earth: "controls solid material such as stone, sand or soil",
+        Fire: "creates or manipulates flame and heat",
+        Water: "creates, collects or manipulates water",
+        Wind: "moves and manipulates air",
+        "Wind Underfoot": "supports a solid object or contraption in flight",
+        Repetition: "continually restores an object toward its prior state",
+        Light: "creates or manipulates light",
+        Purification: "purifies water or separates waste",
+    };
+    return semanticMap[baseName] ?? `uses the ${baseName} sigil as the effect type`;
 }
 
 export function explainSpellComposition(spell: SpellType): string {
     const seals = spell.seals ?? [];
-    if (seals.length === 0) return "The circle has no seals yet.";
+    if (seals.length === 0) return "No seal exists: add at least one outer ring.";
 
-    const parts = seals.map((seal, sealIndex) => {
-        const ringCount = seal.rings?.length ?? 0;
-        const ringNames = (seal.rings ?? []).map(ring => ring.name ?? "unnamed ring");
-        const sigils = (seal.sigils ?? []).map(sigil => sigil.name?.replace(/^sigil_/, "") ?? "unnamed sigil");
-        const signs = (seal.signs ?? []).map(sign => {
-            const rawName = sign.name?.replace(/^sign_/, "") ?? "unnamed sign";
+    const explanations = seals.map((seal, sealIndex) => {
+        const rings = seal.rings ?? [];
+        const sigils = seal.sigils ?? [];
+        const signs = seal.signs ?? [];
+
+        if (rings.length === 0) {
+            return `Seal ${sealIndex + 1}: incomplete. A ring must contain or connect the sigils and signs; without it the seal cannot activate.`;
+        }
+
+        const ringText = rings.map(ring => {
+            const radius = ring.radius ?? 400;
+            const gap = ring.openingSize && ring.openingSize > 0
+                ? ` with an opening of ${ring.openingSize} degrees`
+                : " closed";
+            return `R${radius}${gap}`;
+        }).join(" + ");
+
+        const signText = signs.map(sign => {
+            const name = sign.name ?? "unnamed sign";
             const amount = sign.amount ?? 1;
+            const radius = sign.radius ?? 0;
             const angle = sign.angle ?? 0;
             const rotation = sign.rotation ?? 0;
-            const strafe = sign.offsetStrafe ?? 0;
-            const radius = sign.radius ?? 0;
-            const isInverted = /(?:Inverted|inverted)/.test(rawName);
-            const orientation = isInverted ? "inverted (opposite effect)" : angle === 180 ? "rotated 180 degrees" : "normal orientation";
-            const symmetry = amount > 1 && 360 % amount === 0
-                ? `radial symmetry of ${amount} positions`
-                : `asymmetric placement (${amount} position)`;
+            const inverted = /(?:Inverted|inverted)/.test(name);
+            const direction = inverted
+                ? "inverted; it produces the opposite documented behavior"
+                : angle === 180
+                    ? "rotated 180 degrees"
+                    : "normally oriented";
 
-            return `${amount} ${rawName}: ${orientation}; ${symmetry}; circle radius ${radius}; rotation ${rotation} degrees; strafe ${strafe}`;
-        });
+            return `SIGN(${name.replace(/^sign_/, "")}, count=${amount}, radius=${radius}, rotation=${rotation}): ${direction}; ${signSemantics(name)}.`;
+        }).join(" ");
 
-        const details = [`Seal ${sealIndex + 1}${seal.name ? ` (${seal.name})` : ""}`];
-        details.push(`${ringCount} ring${ringCount === 1 ? "" : "s"}${ringNames.length ? ` (${ringNames.join(", ")})` : ""}`);
-        if (sigils.length) details.push(`sigils: ${sigils.join(", ")}`);
-        if (signs.length) details.push(`signs: ${signs.join(", ")}`);
-        if (!sigils.length && !signs.length) details.push("no symbols, only rings/lines");
+        const effectText = sigils.length
+            ? `${sigilSemantics(sigils[0].name ?? "")}`
+            : "No sigil is present; the result depends mainly on the signs and ring.";
 
-        return details.join("; ");
+        const balanceText = signs.length
+            ? "Signs are balanced only if their counts and radii are symmetric; unequal crowns can change direction or destabilize the spell."
+            : "No signs are present; a ring alone may cause a rapid discharge of energy.";
+
+        const grammar = `SEAL{${ringText} | ${sigils.map(sigil => `SIGIL(${sigil.name?.replace(/^sigil_/, "") ?? "?"})`).join(" + ")} | ${signs.map(sign => `SIGN(${sign.name?.replace(/^sign_/, "") ?? "?"}, ${sign.amount ?? 1}@${sign.radius ?? 0})`).join(" + ")}}`;
+
+        return `Seal ${sealIndex + 1}: ${effectText} ${signText ? `The sign grammar is ${signText}` : "No signs modify the sigil."} ${balanceText}\nSyntax: ${grammar}`;
     });
 
-    return parts.join(" | ");
+    return explanations.join("\n\n");
 }
 
 export const supportedSpellEffects = [

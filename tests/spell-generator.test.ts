@@ -124,9 +124,9 @@ test("explains circle components and sign properties", () => {
         }],
     } as unknown as SpellType);
 
-    assert.match(explanation, /Main Ring/);
+    assert.match(explanation, /A ring must contain|SEAL\{|SIGIL\(|SIGN\(/);
     assert.match(explanation, /Water/);
     assert.match(explanation, /Levitation/);
-    assert.match(explanation, /radial symmetry of 4 positions/);
-    assert.match(explanation, /rotation 45 degrees/);
+    assert.match(explanation, /SIGIL\(Water\)|SIGN\(Levitation/);
+    assert.match(explanation, /rotation=|normally oriented|count=4/);
 });

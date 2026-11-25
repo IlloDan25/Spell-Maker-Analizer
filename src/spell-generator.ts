@@ -153,8 +153,8 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
 
     const primarySigil = sigils[0];
     const selectedSigns = uniqueNames(signs).slice(0, 2);
-    const ringCount = template.ringCount;
-    const ringRadii = ringCount === 1 ? [400] : [400, 300];
+    const ringCount = variation % 3 === 0 ? template.ringCount : variation % 3 === 1 ? 1 : 2;
+    const ringRadii = ringCount === 1 ? [400] : variation % 2 === 0 ? [400, 300] : [380, 260];
     const rings = ringRadii.map((radius, index) => ({
         name: ringCount === 1 ? "Main Ring" : `Ring ${index + 1}`,
         radius,
@@ -164,8 +164,8 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
         { name: primarySigil, size: 180, angle: 0, offsetX: 0, offsetY: 0 },
     ];
 
-    const stableAmounts = [6, 8];
-    const stableRadii = [240, 310];
+    const stableAmounts = variation % 2 === 0 ? [6, 8] : [4, 10];
+    const stableRadii = variation % 4 < 2 ? [240, 310] : [220, 330];
     const signObjects = selectedSigns.slice(0, 2).map((name, index) => ({
         name,
         size: 120,
@@ -176,7 +176,7 @@ function findCreativeRecipe(effect: string, seedOverride?: number, variation = 0
         amountSkip: 0,
         radius: stableRadii[index],
         angle: 0,
-        rotation: index === 0 ? 0 : 22.5,
+        rotation: (index === 0 ? 0 : 22.5) + variation * 11.25,
     }));
 
     const requestLabel = effect.replace(/variant=.*/, "").split(/\s+/).slice(0, 4).join(" ").trim() || "Experimental";
@@ -208,6 +208,21 @@ export function findSpellRecipe(effect: string): SpellRecipe | null {
 
     const documented = matches[0];
     return documented;
+}
+
+export function generateSpellCandidates(effect: string): SpellRecipe[] {
+    const documented = findSpellRecipe(effect);
+    if (documented) return [documented];
+
+    const normalized = normalizeEffect(effect);
+    if (!normalized) return [];
+
+    const seed = hashText(normalized);
+    return Array.from({ length: 8 }, (_, variation) => {
+        const recipe = findCreativeRecipe(normalized, seed, variation);
+        recipe.evidence = `Creative variant ${variation + 1}/8: one effect sigil, ${recipe.seals[0].rings?.length ?? 1} ring(s), and balanced modifier placement.`;
+        return recipe;
+    });
 }
 
 export function generateSpellRecipe(effect: string): SpellRecipe | null {

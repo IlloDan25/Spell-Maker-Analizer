@@ -7,6 +7,7 @@ import {
     explainSpellComposition,
     findSpellRecipe,
     generateSpellRecipe,
+    generateSpellCandidates,
 } from "../src/spell-generator.ts";
 
 test("finds a documented Rainbringer pattern", () => {
@@ -27,6 +28,14 @@ test("generates a creative proposal for an unknown effect", () => {
     assert.ok(recipe.seals.length > 0);
     assert.ok(recipe.seals[0].rings?.length);
     assert.match(recipe.caveat, /unconfirmed/i);
+});
+
+test("creative generation offers eight distinct deterministic candidates", () => {
+    const candidates = generateSpellCandidates("make this object stronger");
+
+    assert.equal(candidates.length, 8);
+    assert.deepEqual(candidates, generateSpellCandidates("make this object stronger"));
+    assert.equal(new Set(candidates.map(candidate => candidate.seals[0].signs?.map(sign => sign.rotation).join("/"))).size, 8);
 });
 
 test("creative generation is deterministic", () => {

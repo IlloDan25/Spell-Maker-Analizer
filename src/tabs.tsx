@@ -1,7 +1,7 @@
 import type { WitchHatAtelierSpellMaker as SpellType } from "../types/spell";
 import { applyGeneratedSpell, createJsonEditor, jsonEditor } from "./form";
 import { btn_downloadImage, btn_downloadSpellJson, btn_loadSpellJson, btn_resetSpell, btn_uploadSpellJson, copyToClipboard } from "./io";
-import { explainSpellComposition, generateSpellRecipe } from "./spell-generator";
+import { explainSpellComposition, generateSpellCandidates } from "./spell-generator";
 
 // Example spells for demonstration of the different features and complexities available
 import pokemon from "../examples/Pokémon.json";
@@ -40,6 +40,10 @@ export default function updateCustomTabs() {
             <button id="generate-spell" type="button" class="btn btn-sm btn-primary">
                 <i class="fas fa-wand-magic-sparkles me-1" /> Generate Spell
             </button>
+            <label htmlFor="spell-candidate" class="visually-hidden">Creative variant</label>
+            <select id="spell-candidate" class="form-select form-select-sm d-inline-block ms-2 w-auto" disabled>
+                <option value="0">Variant 1</option>
+            </select>
             <button id="explain-spell" type="button" class="btn btn-sm btn-outline-secondary ms-2">
                 <i class="fas fa-circle-info me-1" /> Explain Current Circle
             </button>
@@ -61,12 +65,28 @@ export default function updateCustomTabs() {
             return;
         }
 
-        const recipe = generateSpellRecipe(effect);
-        if (!recipe) {
+        const candidates = generateSpellCandidates(effect);
+        if (candidates.length === 0) {
             if (status) status.textContent = "Describe the effect with at least one usable keyword.";
             return;
         }
 
+        const candidateSelect = document.getElementById("spell-candidate") as HTMLSelectElement;
+        candidateSelect.replaceChildren(...candidates.map((candidate, index) => {
+            const option = document.createElement("option");
+            option.value = String(index);
+            option.textContent = candidate.kind === "documented" ? candidate.name : `Variant ${index + 1}`;
+            return option;
+        }));
+        candidateSelect.disabled = candidates.length < 2;
+        candidateSelect.dataset.effect = effect;
+
+        candidateSelect.dataset.selected = "0";
+        candidateSelect.onchange = () => {
+            candidateSelect.dataset.selected = candidateSelect.value;
+        };
+
+        const recipe = candidates[Number(candidateSelect.value)] ?? candidates[0];
         const action = recipe.kind === "documented" ? "verified wiki pattern" : "new creative proposal";
         if (!window.confirm(`Generate "${recipe.name}" from a ${action}? This replaces the current spell name, description, and seals.`)) return;
 

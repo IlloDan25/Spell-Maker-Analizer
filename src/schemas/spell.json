@@ -508,6 +508,33 @@
                                 "type": "string",
                                 "title": "Symbol Name",
                                 "default": ""
+                            },
+                            "role": {
+                                "type": "string",
+                                "title": "Symbol Role",
+                                "enum": [
+                                    "both",
+                                    "sigil",
+                                    "sign"
+                                ],
+                                "enumTitles": [
+                                    "Sigil and Sign",
+                                    "Sigil",
+                                    "Sign"
+                                ],
+                                "default": "both",
+                                "options": {
+                                    "infoText": "Controls where this custom image appears in the symbol lists"
+                                }
+                            },
+                            "description": {
+                                "type": "string",
+                                "title": "Effect Description",
+                                "format": "textarea",
+                                "default": "",
+                                "options": {
+                                    "infoText": "Optional explanation used by the circle explanation tool"
+                                }
                             }
                         }
                     }

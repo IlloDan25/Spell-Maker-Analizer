@@ -223,7 +223,14 @@ export function generateSpellRecipe(effect: string): SpellRecipe | null {
     return recipe;
 }
 
-function signSemantics(name: string): string {
+function customImageSemantics(spell: SpellType, name: string): string | null {
+    const customName = name.replace(/^custom_/, "");
+    const custom = spell.custom?.images?.find((image: any) => image.name === customName);
+    const description = custom?.description?.trim();
+    return description || (customName ? `Custom symbol "${customName}"; no effect description was provided.` : null);
+}
+
+function signSemantics(name: string, spell?: SpellType): string {
     const semanticMap: Record<string, string> = {
         "Enlarge": "enlarges an affected object",
         "Enlarge (Inverted)": "shrinks an affected object",
@@ -244,13 +251,15 @@ function signSemantics(name: string): string {
         "Purify": "separates waste or contamination",
         "Refuse": "collects unwanted material",
         "Conceal": "hides the target",
-        "Envelop": "envelops or coats the target",
     };
+    if (name.startsWith("custom_") && spell) {
+        return customImageSemantics(spell, name) ?? "uses a custom sign whose meaning is not defined";
+    }
     const baseName = name.replace(/^sign_/, "");
     return semanticMap[baseName] ?? `applies the documented ${baseName} modifier`;
 }
 
-function sigilSemantics(name: string): string {
+function sigilSemantics(name: string, spell?: SpellType): string {
     const baseName = name.replace(/^sigil_/, "");
     const semanticMap: Record<string, string> = {
         Earth: "controls solid material such as stone, sand or soil",
@@ -262,6 +271,9 @@ function sigilSemantics(name: string): string {
         Light: "creates or manipulates light",
         Purification: "purifies water or separates waste",
     };
+    if (name.startsWith("custom_") && spell) {
+        return customImageSemantics(spell, name) ?? "uses a custom sigil whose meaning is not defined";
+    }
     return semanticMap[baseName] ?? `uses the ${baseName} sigil as the effect type`;
 }
 
@@ -299,20 +311,29 @@ export function explainSpellComposition(spell: SpellType): string {
                     ? "rotated 180 degrees"
                     : "normally oriented";
 
-            return `SIGN(${name.replace(/^sign_/, "")}, count=${amount}, radius=${radius}, rotation=${rotation}): ${direction}; ${signSemantics(name)}.`;
+            const prefixText = sign.prefix ? `${sign.prefix} ` : "";
+            return `SIGN(${prefixText}${name.replace(/^(?:sign_|custom_)/, "")}, count=${amount}, radius=${radius}, rotation=${rotation}): ${direction}; ${signSemantics(name, spell)}.`;
         }).join(" ");
 
         const effectText = sigils.length
-            ? `${sigilSemantics(sigils[0].name ?? "")}`
+            ? sigils.map(sigil => {
+                const prefixText = sigil.prefix ? `${sigil.prefix} ` : "";
+                return `${prefixText}${sigilSemantics(sigil.name ?? "", spell)}`;
+            }).join(" In addition, ")
             : "No sigil is present; the result depends mainly on the signs and ring.";
 
         const balanceText = signs.length
             ? "Signs are balanced only if their counts and radii are symmetric; unequal crowns can change direction or destabilize the spell."
             : "No signs are present; a ring alone may cause a rapid discharge of energy.";
 
-        const grammar = `SEAL{${ringText} | ${sigils.map(sigil => `SIGIL(${sigil.name?.replace(/^sigil_/, "") ?? "?"})`).join(" + ")} | ${signs.map(sign => `SIGN(${sign.name?.replace(/^sign_/, "") ?? "?"}, ${sign.amount ?? 1}@${sign.radius ?? 0})`).join(" + ")}}`;
+        const grammar = `SEAL{${ringText} | ${sigils.map(sigil => `SIGIL(${sigil.name?.replace(/^(?:sigil_|custom_)/, "") ?? "?"})`).join(" + ")} | ${signs.map(sign => `SIGN(${sign.name?.replace(/^(?:sign_|custom_)/, "") ?? "?"}, ${sign.amount ?? 1}@${sign.radius ?? 0})`).join(" + ")}}`;
 
-        return `Seal ${sealIndex + 1}: ${effectText} ${signText ? `The sign grammar is ${signText}` : "No signs modify the sigil."} ${balanceText}\nSyntax: ${grammar}`;
+        const customCount = [...sigils, ...signs].filter(symbol => symbol.name?.startsWith("custom_")).length;
+        const roleText = customCount
+            ? ` This seal uses ${customCount} custom symbol${customCount === 1 ? "" : "s"}; custom descriptions are fan-defined and are not confirmed by the wiki.`
+            : "";
+
+        return `Seal ${sealIndex + 1}: ${effectText} ${signText ? `The sign grammar is ${signText}` : "No signs modify the sigil."} ${balanceText}${roleText}\nSyntax: ${grammar}`;
     });
 
     return explanations.join("\n\n");

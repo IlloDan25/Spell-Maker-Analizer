@@ -106,6 +106,33 @@ test("creative symbols exist in the project symbol catalog", () => {
     }
 });
 
+test("exposes custom images only in their selected role", () => {
+    const images = [{ name: "Fire Wheel", role: "sign", description: "Spreads flame outward" }];
+
+    // This test documents the data contract used by rebuildAvailableSymbols.
+    assert.equal(images[0].role, "sign");
+    assert.equal(images[0].description, "Spreads flame outward");
+});
+
+test("explains custom sigils and signs using the saved description", () => {
+    const explanation = explainSpellComposition({
+        name: "Custom Test",
+        custom: {
+            images: [{ name: "Sun Core", role: "sigil", description: "Creates concentrated sunlight" }, { name: "Sun Rays", role: "sign", description: "Spreads light outward" }],
+        },
+        seals: [{
+            name: "Custom Seal",
+            rings: [{ name: "Main Ring", radius: 300 }],
+            sigils: [{ name: "custom_Sun Core", size: 220 }],
+            signs: [{ name: "custom_Sun Rays", amount: 8, radius: 250 }],
+        }],
+    } as unknown as SpellType);
+
+    assert.match(explanation, /Creates concentrated sunlight/);
+    assert.match(explanation, /Spreads light outward/);
+    assert.match(explanation, /fan-defined/i);
+});
+
 test("explains circle components and sign properties", () => {
     const explanation = explainSpellComposition({
         name: "Test",

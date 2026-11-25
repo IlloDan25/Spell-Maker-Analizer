@@ -46,12 +46,17 @@ export function rebuildAvailableSymbols(schema: any, symbols: Symbols, lastSpell
     const tohKeys = Object.keys(symbols.tohs).sort(smartSort);
 
     const customImages = getCustomImages(lastSpell);
-    const customKeys = customImages.map((i: any) => i.name);
+    const customSigilKeys = customImages
+        .filter((image: any) => image.name && (!image.role || image.role === "both" || image.role === "sigil"))
+        .map((image: any) => image.name);
+    const customSignKeys = customImages
+        .filter((image: any) => image.name && (!image.role || image.role === "both" || image.role === "sign"))
+        .map((image: any) => image.name);
 
     // Setting the list of default available sigils (shared pool of images, but different orders)
     Object.assign(schemaSigils.items.properties.name, {
         enum: [
-            "###Customs", ...customKeys.map(s => "custom_" + s),
+            "###Customs", ...customSigilKeys.map(s => "custom_" + s),
             "###Sigils", ...sigilKeys.map(s => "sigil_" + s),
             "###Signs", ...signKeys.map(s => "sign_" + s),
             "###Forbidden", ...forbiddenKeys.map(s => "forbidden_" + s),
@@ -60,7 +65,7 @@ export function rebuildAvailableSymbols(schema: any, symbols: Symbols, lastSpell
         ],
         options: {
             enum_titles: [
-                "###Custom", ...customKeys,
+                "###Custom", ...customSigilKeys,
                 "###Sigils", ...sigilKeys,
                 "###Signs", ...signKeys,
                 "###Forbidden", ...forbiddenKeys,
@@ -71,7 +76,7 @@ export function rebuildAvailableSymbols(schema: any, symbols: Symbols, lastSpell
     });
     Object.assign(schemaSigns.items.properties.name, {
         enum: [
-            "###Customs", ...customKeys.map(s => "custom_" + s),
+            "###Customs", ...customSignKeys.map(s => "custom_" + s),
             "###Signs", ...signKeys.map(s => "sign_" + s),
             "###Sigils", ...sigilKeys.map(s => "sigil_" + s),
             "###Forbidden", ...forbiddenKeys.map(s => "forbidden_" + s),
@@ -80,7 +85,7 @@ export function rebuildAvailableSymbols(schema: any, symbols: Symbols, lastSpell
         ],
         options: {
             enum_titles: [
-                "###Custom", ...customKeys,
+                "###Custom", ...customSignKeys,
                 "###Signs", ...signKeys,
                 "###Sigils", ...sigilKeys,
                 "###Forbidden", ...forbiddenKeys,

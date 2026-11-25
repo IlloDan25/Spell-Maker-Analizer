@@ -237,7 +237,7 @@ export default function updateCustomTabs() {
                 <li class="list-group-item">Then for each of the allocated images click the <span className="badge bg-secondary"><i class="fas fa-upload" />&nbsp;Upload</span> button to upload an image from your device.<br />Preferably the image should be a square with a transparent background and not larger than 500×500px.</li>
                 <li class="list-group-item">Finally click the <span className="badge bg-secondary"><i class="fas fa-upload" />&nbsp;Load&nbsp;Custom&nbsp;Images</span> button at the bottom to reload the editor with the updated custom images list.</li>
             </ol>
-            <p>Once the above steps were completed custom images will become an option when choosing the symbols for Sigils and Signs, under the custom name given to each one.</p>
+            <p>Once the above steps are complete, assign each custom image a role: Sigil, Sign, or both. Its effect description is used by “Explain Current Circle”; without a description, the tool will state that the effect is user-defined and unconfirmed.</p>
 
             <h3 id="about-import-export" class="h4 mt-5 mb-3">Import / Export</h3>
             <p>The JSON editor updates in real time to reflect the current spell, but can also be edited directly. After editing, press the <span className="badge bg-secondary"><i class="fas fa-paste" />&nbsp;Load&nbsp;JSON&nbsp;Into&nbsp;Editor</span> button to apply any changes made to the editor.</p>

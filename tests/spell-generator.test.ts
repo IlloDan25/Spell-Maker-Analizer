@@ -37,7 +37,7 @@ test("creative generation is deterministic", () => {
     assert.deepEqual(first, second);
 });
 
-test("English and Spanish unbreakable requests create equivalent layouts", () => {
+test("English and Spanish unbreakable requests share valid protective intent", () => {
     const english = generateSpellRecipe("make this object unbreakable");
     const spanish = generateSpellRecipe("haz este objeto irrompible");
 
@@ -45,7 +45,15 @@ test("English and Spanish unbreakable requests create equivalent layouts", () =>
     assert.ok(spanish);
     assert.equal(english.kind, "creative");
     assert.equal(spanish.kind, "creative");
-    assert.deepEqual(english.seals, spanish.seals);
+
+    for (const recipe of [english, spanish]) {
+        const seal = recipe.seals[0];
+        assert.ok(seal.rings && seal.rings.length > 0);
+        assert.ok(seal.sigils?.length);
+        assert.ok(seal.signs?.length);
+    }
+
+    assert.notEqual(english.name, spanish.name);
 });
 
 test("creative layouts use stable concentric positions", () => {

@@ -74,7 +74,7 @@ function normalizeEffect(effect: string): string {
         .replace(/\s+/g, " ");
 
     if (/\b(?:unbreakable|indestructible|invulnerable|invencible|irrompible|resistant|resistente|ineditable)\b/.test(normalized)) {
-        return "unbreakable";
+        return normalized.replace(/\b(?:unbreakable|indestructible|invulnerable|invencible|irrompible|resistant|resistente|ineditable)\b/g, "unbreakable");
     }
 
     return normalized;

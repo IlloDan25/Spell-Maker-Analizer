@@ -7,6 +7,25 @@ import { getRadialSignIndices } from "./layout";
 import symbols from "./data/symbols.json";
 import schema from "./schemas/spell.json";
 
+interface DragTarget {
+    sealIndex: number;
+    type: "sigil" | "sign";
+    symbolIndex: number;
+    positionIndex: number;
+    radialIndex?: number;
+    x: number;
+    y: number;
+    size: number;
+}
+
+interface DragState {
+    target: DragTarget;
+    previousMouseX: number;
+    previousMouseY: number;
+}
+
+const dragTargets: DragTarget[] = [];
+let dragState: DragState | null = null;
 
 
 // Stores the symbols images
@@ -160,6 +179,123 @@ const sketch = (p: p5) => {
         p.noFill();
 
         p.noLoop();
+
+        const canvasElement = canvas.elt as HTMLCanvasElement;
+        const canvasPoint = (event: MouseEvent) => {
+            const rect = canvasElement.getBoundingClientRect();
+            return {
+                x: (event.clientX - rect.left) * p.width / rect.width,
+                y: (event.clientY - rect.top) * p.height / rect.height,
+            };
+        };
+
+        canvasElement.addEventListener("mousedown", event => {
+            if (!jsonEditor) return;
+
+            const point = canvasPoint(event);
+            let closest: DragTarget | null = null;
+            let closestDistance = Number.POSITIVE_INFINITY;
+            for (const target of dragTargets) {
+                const dx = point.x - target.x;
+                const dy = point.y - target.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance <= target.size / 2 && distance < closestDistance) {
+                    closest = target;
+                    closestDistance = distance;
+                }
+            }
+
+            if (closest) {
+                dragState = {
+                    target: closest,
+                    previousMouseX: point.x,
+                    previousMouseY: point.y,
+                };
+                canvasElement.style.cursor = "grabbing";
+                event.preventDefault();
+            }
+        });
+
+        canvasElement.addEventListener("mousemove", event => {
+            if (!dragState || !jsonEditor) {
+                const point = canvasPoint(event);
+                const hovering = dragTargets.some(target => {
+                    const dx = point.x - target.x;
+                    const dy = point.y - target.y;
+                    return Math.sqrt(dx * dx + dy * dy) <= target.size / 2;
+                });
+                canvasElement.style.cursor = hovering ? "grab" : "default";
+                return;
+            }
+
+            const point = canvasPoint(event);
+            const { target, previousMouseX, previousMouseY } = dragState;
+            const spell = jsonEditor.getValue() as SpellType;
+            const seal = spell.seals?.[target.sealIndex];
+            if (!seal) return;
+
+            const sealAngle = (seal.angle ?? defaults.seal.angle) * Math.PI / 180;
+            const sealScale = (seal.scale ?? defaults.seal.scale) / 100;
+            const worldDx = point.x - previousMouseX;
+            const worldDy = point.y - previousMouseY;
+            const localDx = (Math.cos(sealAngle) * worldDx + Math.sin(sealAngle) * worldDy) / sealScale;
+            const localDy = (-Math.sin(sealAngle) * worldDx + Math.cos(sealAngle) * worldDy) / sealScale;
+
+            const symbol = target.type === "sigil"
+                ? seal.sigils?.[target.symbolIndex]
+                : seal.signs?.[target.symbolIndex];
+            if (!symbol) return;
+
+            const symbolWithPositions = symbol as typeof symbol & { positions?: Array<{ x?: number; y?: number; angle?: number; size?: number }> };
+
+            if (!symbolWithPositions.positions?.length) {
+                if (target.type === "sigil") {
+                    symbolWithPositions.positions = [{
+                        x: symbol.offsetX ?? defaults.sigil.offsetX,
+                        y: symbol.offsetY ?? defaults.sigil.offsetY,
+                        angle: symbol.angle ?? defaults.sigil.angle,
+                        size: symbol.size ?? defaults.sigil.size,
+                    }];
+                } else {
+                    const sign = symbol as typeof symbol & { amount?: number; amountSkip?: number; radius?: number; rotation?: number; offsetX?: number; offsetY?: number; offsetStrafe?: number };
+                    const amount = sign.amount ?? defaults.sign.amount;
+                    const indices = getRadialSignIndices(amount, sign.amountSkip ?? defaults.sign.amountSkip);
+                    const radialRotation = sign.rotation ?? defaults.sign.rotation;
+                    const signRadius = sign.radius ?? defaults.sign.radius;
+                    const strafe = sign.offsetStrafe ?? defaults.sign.offsetStrafe;
+                    const offsetX = sign.offsetX ?? defaults.sign.offsetX;
+                    const offsetY = sign.offsetY ?? defaults.sign.offsetY;
+                    const signAngle = sign.angle ?? defaults.sign.angle;
+
+                    symbolWithPositions.positions = indices.map(radialIndex => {
+                        const positionAngle = radialRotation + radialIndex * 360 / amount;
+                        const radians = positionAngle * Math.PI / 180;
+                        return {
+                            x: offsetX + Math.cos(radians) * strafe + Math.sin(radians) * signRadius,
+                            y: offsetY + Math.sin(radians) * strafe - Math.cos(radians) * signRadius,
+                            angle: positionAngle + signAngle,
+                            size: sign.size ?? defaults.sign.size,
+                        };
+                    });
+                }
+            }
+
+            const position = symbolWithPositions.positions[target.positionIndex];
+            if (position) {
+                position.x = (position.x ?? 0) + localDx;
+                position.y = (position.y ?? 0) + localDy;
+                jsonEditor.setValue(spell);
+                p.redraw();
+            }
+
+            dragState.previousMouseX = point.x;
+            dragState.previousMouseY = point.y;
+        });
+
+        canvasElement.addEventListener("mouseup", () => {
+            dragState = null;
+            canvasElement.style.cursor = "default";
+        });
     };
     // #endregion SETUP
 
@@ -167,6 +303,7 @@ const sketch = (p: p5) => {
 
     // #region DRAW
     p.draw = () => {
+        dragTargets.length = 0;
         // Editor not loaded yet
         if (!jsonEditor) {
             console.warn("Editor not loaded yet. Drawing skipped");
@@ -341,7 +478,8 @@ const sketch = (p: p5) => {
 
 
                 // Drawing each of the sigils/signs in the circle
-                const manualPositions = ((symbol as SignType & { positions?: Array<{ x?: number, y?: number, angle?: number, size?: number }> }).positions ?? null);
+                const configuredPositions = (symbol as SignType & { positions?: Array<{ x?: number, y?: number, angle?: number, size?: number }> }).positions;
+                const manualPositions = configuredPositions && configuredPositions.length > 0 ? configuredPositions : null;
 
                 const positionsToDraw = manualPositions && manualPositions.length > 0
                     ? manualPositions.map(position => ({
@@ -394,6 +532,35 @@ const sketch = (p: p5) => {
                         p.stroke(tintColor);
                         p.rect(0, 0, position.size, position.size);
                     }
+
+                    const positionIndex = positionsToDraw.indexOf(position);
+                    let localTargetX = position.x;
+                    let localTargetY = position.y;
+
+                    if (!manualPositions && symbolDrawType === "sign") {
+                        const radialRotation = (symbol.rotation ?? symbolDefaults.rotation) + position.i * 360 / symbolAmount;
+                        const radians = radialRotation * Math.PI / 180;
+                        localTargetX = symbolOffsetX + Math.cos(radians) * symbolOffsetStrafe + Math.sin(radians) * (symbol.radius ?? symbolDefaults.radius);
+                        localTargetY = symbolOffsetY + Math.sin(radians) * symbolOffsetStrafe - Math.cos(radians) * (symbol.radius ?? symbolDefaults.radius);
+                    } else if (!manualPositions) {
+                        localTargetX = symbolOffsetX;
+                        localTargetY = symbolOffsetY;
+                    }
+
+                    const sealAngleRadians = sealAngle * Math.PI / 180;
+                    const worldX = centerX + sealOffsetX + sealScale * (Math.cos(sealAngleRadians) * localTargetX - Math.sin(sealAngleRadians) * localTargetY);
+                    const worldY = centerY + sealOffsetY + sealScale * (Math.sin(sealAngleRadians) * localTargetX + Math.cos(sealAngleRadians) * localTargetY);
+
+                    dragTargets.push({
+                        sealIndex,
+                        type: symbolDrawType as "sigil" | "sign",
+                        symbolIndex: localIndex,
+                        positionIndex,
+                        radialIndex: !manualPositions && symbolDrawType === "sign" ? position.i : undefined,
+                        x: worldX,
+                        y: worldY,
+                        size: position.size * sealScale,
+                    });
 
                     p.pop(); // SIGILS & SIGNS
                 }

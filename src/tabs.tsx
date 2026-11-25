@@ -44,6 +44,9 @@ export default function updateCustomTabs() {
             <select id="spell-candidate" class="form-select form-select-sm d-inline-block ms-2 w-auto" disabled>
                 <option value="0">Variant 1</option>
             </select>
+            <button id="refine-spell" type="button" class="btn btn-sm btn-outline-secondary ms-2">
+                <i class="fas fa-arrows-rotate me-1" /> Refine variants
+            </button>
             <button id="explain-spell" type="button" class="btn btn-sm btn-outline-secondary ms-2">
                 <i class="fas fa-circle-info me-1" /> Explain Current Circle
             </button>
@@ -55,6 +58,9 @@ export default function updateCustomTabs() {
         </section>
     );
 
+    let activeCandidates: ReturnType<typeof generateSpellCandidates> = [];
+    let refinement = 0;
+
     document.getElementById("generate-spell")?.addEventListener("click", () => {
         const effectInput = document.getElementById("spell-effect") as HTMLTextAreaElement;
         const status = document.getElementById("spell-effect-status");
@@ -65,28 +71,31 @@ export default function updateCustomTabs() {
             return;
         }
 
-        const candidates = generateSpellCandidates(effect);
-        if (candidates.length === 0) {
+        const candidateSelect = document.getElementById("spell-candidate") as HTMLSelectElement;
+        if (candidateSelect.dataset.effect !== `${effect}|${refinement}` || activeCandidates.length === 0) {
+            activeCandidates = generateSpellCandidates(effect, refinement);
+            candidateSelect.replaceChildren(...activeCandidates.map((candidate, index) => {
+                const option = document.createElement("option");
+                option.value = String(index);
+                option.textContent = candidate.kind === "documented" ? candidate.name : `Variant ${index + 1}`;
+                return option;
+            }));
+            candidateSelect.disabled = activeCandidates.length < 2;
+            candidateSelect.dataset.effect = `${effect}|${refinement}`;
+            candidateSelect.value = "0";
+        }
+
+        if (activeCandidates.length === 0) {
             if (status) status.textContent = "Describe the effect with at least one usable keyword.";
             return;
         }
 
-        const candidateSelect = document.getElementById("spell-candidate") as HTMLSelectElement;
-        candidateSelect.replaceChildren(...candidates.map((candidate, index) => {
-            const option = document.createElement("option");
-            option.value = String(index);
-            option.textContent = candidate.kind === "documented" ? candidate.name : `Variant ${index + 1}`;
-            return option;
-        }));
-        candidateSelect.disabled = candidates.length < 2;
-        candidateSelect.dataset.effect = effect;
-
-        candidateSelect.dataset.selected = "0";
         candidateSelect.onchange = () => {
-            candidateSelect.dataset.selected = candidateSelect.value;
+            const selected = activeCandidates[Number(candidateSelect.value)];
+            if (status && selected) status.textContent = selected.evidence;
         };
 
-        const recipe = candidates[Number(candidateSelect.value)] ?? candidates[0];
+        const recipe = activeCandidates[Number(candidateSelect.value)] ?? activeCandidates[0];
         const action = recipe.kind === "documented" ? "verified wiki pattern" : "new creative proposal";
         if (!window.confirm(`Generate "${recipe.name}" from a ${action}? This replaces the current spell name, description, and seals.`)) return;
 
@@ -98,6 +107,30 @@ export default function updateCustomTabs() {
         if (status) status.textContent = recipe.kind === "documented"
             ? `Generated the documented ${recipe.name}.`
             : `Generated a new creative proposal: ${recipe.name}. Its wiki accuracy is unconfirmed.`;
+    });
+
+    document.getElementById("refine-spell")?.addEventListener("click", () => {
+        const effectInput = document.getElementById("spell-effect") as HTMLTextAreaElement;
+        const status = document.getElementById("spell-effect-status");
+        const effect = effectInput.value.trim();
+        if (!effect) {
+            if (status) status.textContent = "Describe the effect first.";
+            return;
+        }
+
+        refinement += 1;
+        activeCandidates = generateSpellCandidates(effect, refinement);
+        const candidateSelect = document.getElementById("spell-candidate") as HTMLSelectElement;
+        candidateSelect.replaceChildren(...activeCandidates.map((candidate, index) => {
+            const option = document.createElement("option");
+            option.value = String(index);
+            option.textContent = candidate.kind === "documented" ? candidate.name : `Variant ${index + 1}`;
+            return option;
+        }));
+        candidateSelect.disabled = activeCandidates.length < 2;
+        candidateSelect.dataset.effect = `${effect}|${refinement}`;
+        candidateSelect.value = "0";
+        if (status) status.textContent = `Refinement ${refinement}: ${activeCandidates.length} new structured candidates ready.`;
     });
 
     document.getElementById("explain-spell")?.addEventListener("click", () => {

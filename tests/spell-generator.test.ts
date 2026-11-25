@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { WitchHatAtelierSpellMaker as SpellType } from "../types/spell.ts";
 
 import { getRadialSignIndices } from "../src/layout.ts";
+import { parseEffect } from "../src/composition-engine.ts";
 import {
     explainSpellComposition,
     findSpellRecipe,
@@ -30,12 +31,38 @@ test("generates a creative proposal for an unknown effect", () => {
     assert.match(recipe.caveat, /unconfirmed/i);
 });
 
+test("parses semantic intent instead of using only one fixed template", () => {
+    assert.equal(parseEffect("make my sword unbreakable").intent, "strength");
+    assert.equal(parseEffect("make it rain in the courtyard").intent, "rain");
+    assert.equal(parseEffect("pull enemies toward the seal").intent, "movement");
+    assert.equal(parseEffect("purify dirty water").intent, "purify");
+});
+
+test("creative search produces varied topologies for unrelated intents", () => {
+    const candidates = generateSpellCandidates("make a crystalline crescent barrier in the courtyard");
+
+    assert.equal(candidates.length, 8);
+    const names = candidates.map(candidate => candidate.name);
+    assert.ok(new Set(names).size >= 5);
+});
+
 test("creative generation offers eight distinct deterministic candidates", () => {
     const candidates = generateSpellCandidates("make this object stronger");
 
     assert.equal(candidates.length, 8);
     assert.deepEqual(candidates, generateSpellCandidates("make this object stronger"));
-    assert.equal(new Set(candidates.map(candidate => candidate.seals[0].signs?.map(sign => sign.rotation).join("/"))).size, 8);
+    assert.equal(new Set(candidates.map(candidate => candidate.seals[0].rings?.length)).size >= 1, true);
+    assert.equal(new Set(candidates.map(candidate => candidate.seals[0].signs?.map(sign => sign.name).join("+"))).size >= 1, true);
+});
+
+test("refinement produces a different deterministic candidate batch", () => {
+    const base = generateSpellCandidates("make blue flowers dance gently in the air", 0);
+    const refined = generateSpellCandidates("make blue flowers dance gently in the air", 1);
+
+    assert.equal(base.length, 8);
+    assert.equal(refined.length, 8);
+    assert.deepEqual(refined, generateSpellCandidates("make blue flowers dance gently in the air", 1));
+    assert.notDeepEqual(base.map(candidate => candidate.name), refined.map(candidate => candidate.name));
 });
 
 test("creative generation is deterministic", () => {

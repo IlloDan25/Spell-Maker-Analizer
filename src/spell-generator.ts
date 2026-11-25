@@ -1,5 +1,6 @@
 import type { WitchHatAtelierSpellMaker as SpellType } from "../types/spell";
 import symbols from "./data/symbols.json";
+import { generateCompositionCandidates } from "./composition-engine";
 
 export interface SpellRecipe {
     name: string;
@@ -210,19 +211,25 @@ export function findSpellRecipe(effect: string): SpellRecipe | null {
     return documented;
 }
 
-export function generateSpellCandidates(effect: string): SpellRecipe[] {
+export function generateSpellCandidates(effect: string, refinement = 0): SpellRecipe[] {
     const documented = findSpellRecipe(effect);
     if (documented) return [documented];
 
     const normalized = normalizeEffect(effect);
     if (!normalized) return [];
 
-    const seed = hashText(normalized);
-    return Array.from({ length: 8 }, (_, variation) => {
-        const recipe = findCreativeRecipe(normalized, seed, variation);
-        recipe.evidence = `Creative variant ${variation + 1}/8: one effect sigil, ${recipe.seals[0].rings?.length ?? 1} ring(s), and balanced modifier placement.`;
-        return recipe;
-    });
+    const availableSigils = new Set(Object.keys(symbols.sigils).map(name => `sigil_${name}`));
+    const availableSigns = new Set(Object.keys(symbols.signs).map(name => `sign_${name}`));
+
+    return generateCompositionCandidates(effect, availableSigils, availableSigns, 8, refinement).map(candidate => ({
+        name: candidate.name,
+        kind: "creative",
+        match: /.*/,
+        evidence: candidate.evidence,
+        sourceUrl: "https://witchhatatelier.telepedia.net/wiki/Magic",
+        caveat: candidate.caveat,
+        seals: candidate.seals,
+    }));
 }
 
 export function generateSpellRecipe(effect: string): SpellRecipe | null {
